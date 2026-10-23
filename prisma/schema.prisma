@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  REP
+}
+
+enum Channel {
+  INSTAGRAM
+  WHATSAPP
+}
+
+enum WaitlistSource {
+  IG_DM
+  IG_COMMENT
+  STOREFRONT
+  WHATSAPP
+}
+
+enum WaitlistStatus {
+  WAITING
+  ALERTED
+  REPLIED
+  BOUGHT
+  STOPPED
+}
+
+enum ConversationSource {
+  ORGANIC
+  ALERT
+}
+
+enum ConversationStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum Direction {
+  IN
+  OUT
+}
+
+enum Author {
+  BUYER
+  REP
+  SYSTEM
+}
+
+model Shop {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  igHandle          String?
+  whatsappNumber    String?  // public order number, E.164 digits, for wa.me links
+  missLimitMinutes  Int      @default(60)
+  bankDetails       String?
+  // Meta connection. Tokens are encrypted at rest (see src/lib/crypto.ts).
+  waPhoneNumberId   String?  @unique
+  waTokenEnc        String?
+  igAccountId       String?  @unique
+  igTokenEnc        String?
+  createdAt         DateTime @default(now())
+
+  users         User[]
+  products      Product[]
+  contacts      Contact[]
+  conversations Conversation[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  shopId        String
+  shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name          String
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(REP)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  conversations Conversation[]
+  messages      Message[]
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name       String
+  priceKobo  Int
+  stock      Int      @default(0)
+  imageUrl   String?
+  archived   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  waitlist      WaitlistEntry[]
+  conversations Conversation[]
+
+  @@index([shopId])
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  shopId      String
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name        String
+  waPhone     String?  // E.164 digits without "+", e.g. 2348031234567
+  igUserId    String?  // Instagram-scoped user id
+  igUsername  String?
+  waOptedOut  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  waitlist      WaitlistEntry[]
+  conversations Conversation[]
+
+  @@unique([shopId, waPhone])
+  @@unique([shopId, igUserId])
+}
+
+model WaitlistEntry {
+  id          String         @id @default(cuid())
+  productId   String
+  product     Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  source      WaitlistSource
+  status      WaitlistStatus @default(WAITING)
+  consentText String
+  consentAt   DateTime       @default(now())
+  alertedAt   DateTime?
+  createdAt   DateTime       @default(now())
+
+  @@unique([productId, contactId])
+  @@index([productId, status, createdAt])
+}
+
+model Conversation {
+  id            String             @id @default(cuid())
+  shopId        String
+  shop          Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  contactId     String
+  contact       Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  channel       Channel
+  repId         String?
+  rep           User?              @relation(fields: [repId], references: [id], onDelete: SetNull)
+  productId     String?
+  product       Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
+  source        ConversationSource @default(ORGANIC)
+  status        ConversationStatus @default(OPEN)
+  startedAt     DateTime           @default(now())
+  firstReplyAt  DateTime?
+  lastBuyerAt   DateTime           @default(now())
+  amountKobo    Int?
+  closedAt      DateTime?
+
+  messages Message[]
+
+  @@index([shopId, status])
+  @@index([shopId, startedAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      Direction
+  author         Author
+  repId          String?
+  rep            User?        @relation(fields: [repId], references: [id], onDelete: SetNull)
+  text           String
+  externalId     String?      @unique
+  // sent | delivered | read | failed | simulated
+  deliveryStatus String?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
