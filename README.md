@@ -27,7 +27,7 @@ npm run dev
 
 ## Deploy (Vercel + Supabase)
 
-1. **Database.** Create a Supabase project. Run the migrations once from your machine: `DATABASE_URL="<Supabase direct connection string>" npx prisma migrate deploy`. For the app itself, use the *Transaction pooler* connection string with `?pgbouncer=true&connection_limit=1` added.
+1. **Database.** Create a Supabase project. Under *Connect*, copy the **Session pooler** connection string (it works over IPv4, which Vercel needs) and use it as `DATABASE_URL`. Tables are created automatically: the build runs `prisma migrate deploy`.
 2. **App.** Import the GitHub repo into Vercel. Add every variable from `.env.example`. Set `APP_URL` to the Vercel URL (or your domain).
 3. **Meta app.** At developers.facebook.com create an app of type *Business* and add the **WhatsApp** and **Instagram** products.
    - Webhooks: callback URLs are `APP_URL/api/webhooks/whatsapp` and `APP_URL/api/webhooks/instagram`, verify token is `META_WEBHOOK_VERIFY_TOKEN`. Subscribe WhatsApp to `messages`, Instagram to `messages` and `comments`.
