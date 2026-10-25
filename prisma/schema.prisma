@@ -84,10 +84,16 @@ model User {
   passwordHash  String
   role          Role     @default(REP)
   active        Boolean  @default(true)
+  // Staff WhatsApp number (E.164 digits). Messages from it to the shop's number are product commands, not buyer chats.
+  phone         String?
+  // Product the last staff command or demand nudge was about, so "restock 12" needs no product name.
+  lastProductId String?
   createdAt     DateTime @default(now())
 
   conversations Conversation[]
   messages      Message[]
+
+  @@unique([shopId, phone])
 }
 
 model Product {
@@ -99,12 +105,27 @@ model Product {
   stock      Int      @default(0)
   imageUrl   String?
   archived   Boolean  @default(false)
+  // Set when the product was made from an Instagram post whose caption had no price.
+  needsPrice Boolean  @default(false)
+  igMediaId  String?
+  // Waitlist size the owner was last told about (see demandMilestone).
+  nudgedFor  Int      @default(0)
   createdAt  DateTime @default(now())
 
+  image         ProductImage?
   waitlist      WaitlistEntry[]
   conversations Conversation[]
 
   @@index([shopId])
+  @@unique([shopId, igMediaId])
+}
+
+/// Photos sent over WhatsApp or copied from Instagram (Meta's media links expire), served at /api/products/:id/image.
+model ProductImage {
+  productId String  @id
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mime      String
+  data      Bytes
 }
 
 model Contact {

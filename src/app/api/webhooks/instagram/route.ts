@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { verifyMetaSignature } from "@/lib/meta-signature";
 import { getInstagramProfile, parseInstagramWebhook, sendInstagramPrivateReply } from "@/lib/meta";
 import { receiveMessage } from "@/lib/services/conversations";
+import { productForPost } from "@/lib/services/products";
 
 const WAITLIST_KEYWORDS = /\b(restock|notify|waitlist)\b/i;
 
@@ -35,12 +36,18 @@ export async function POST(req: Request) {
         at: ev.at,
       });
     } else if (WAITLIST_KEYWORDS.test(ev.text)) {
-      // "Comment RESTOCK to get notified": answer privately with the shop's waitlist link.
-      const link = `${process.env.APP_URL}/s/${shop.slug}?ref=ig-comment`;
+      // "Comment RESTOCK to get notified": the post becomes a product (if it isn't one yet) and the buyer
+      // gets a private reply with that product's sign-up link.
+      const product = ev.mediaId ? await productForPost(shop, ev.mediaId) : null;
+      const link = product
+        ? `${process.env.APP_URL}/s/${shop.slug}/notify/${product.id}?ref=ig-comment`
+        : `${process.env.APP_URL}/s/${shop.slug}?ref=ig-comment`;
       await sendInstagramPrivateReply(
         shop,
         ev.commentId,
-        `Hi @${ev.username}! Pick the item you want here and we'll WhatsApp you the minute it's back: ${link}`,
+        product
+          ? `Hi @${ev.username}! Add your WhatsApp number here and we'll message you the minute ${product.name} is back: ${link}`
+          : `Hi @${ev.username}! Pick the item you want here and we'll WhatsApp you the minute it's back: ${link}`,
       );
     }
   }

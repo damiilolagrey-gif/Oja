@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { verifyMetaSignature } from "@/lib/meta-signature";
 import { parseWhatsAppWebhook } from "@/lib/meta";
 import { receiveMessage } from "@/lib/services/conversations";
+import { findStaff, handleStaffMessage } from "@/lib/services/products";
 
 /** Meta calls this once to confirm the webhook URL. */
 export async function GET(req: Request) {
@@ -23,6 +24,11 @@ export async function POST(req: Request) {
   for (const m of messages) {
     const shop = await db.shop.findUnique({ where: { waPhoneNumberId: m.phoneNumberId } });
     if (!shop) continue;
+    const staff = await findStaff(shop.id, m.from);
+    if (staff) {
+      await handleStaffMessage(shop, staff, m.text, m.imageId);
+      continue;
+    }
     await receiveMessage(shop, { channel: "WHATSAPP", waPhone: m.from, name: m.name, text: m.text, externalId: m.id, at: m.at });
   }
   for (const s of statuses) {

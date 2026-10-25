@@ -3,7 +3,9 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { normalizeNigerianPhone } from "@/lib/phone";
 import { requireOwner } from "@/lib/session";
 import type { FormState } from "@/components/ActionForm";
 
@@ -23,6 +25,25 @@ export async function addRep(_: FormState, data: FormData): Promise<FormState> {
   });
   revalidatePath("/app/team");
   return { ok: `${parsed.data.name} can now log in with ${parsed.data.email}` };
+}
+
+/** The number a staff member messages the shop's WhatsApp from to add and restock products. */
+export async function setStaffPhone(_: FormState, data: FormData): Promise<FormState> {
+  const owner = await requireOwner();
+  const raw = String(data.get("phone") ?? "").trim();
+  const phone = raw ? normalizeNigerianPhone(raw) : null;
+  if (raw && !phone) return { error: "Enter a Nigerian WhatsApp number like 0803 123 4567" };
+  if (phone && phone === owner.shop.whatsappNumber) {
+    return { error: "That's the shop's own number. Use the personal number you'll message the shop from." };
+  }
+  try {
+    await db.user.updateMany({ where: { id: String(data.get("id")), shopId: owner.shopId }, data: { phone } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: "Someone on your team already uses that number" };
+    throw e;
+  }
+  revalidatePath("/app/team");
+  return { ok: phone ? "Saved. Messages from this number can now add and restock products." : "Number removed" };
 }
 
 export async function setRepActive(data: FormData) {

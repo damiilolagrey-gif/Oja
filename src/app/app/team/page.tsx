@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/session";
 import { naira } from "@/lib/format";
 import { repStats } from "@/lib/metrics";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { addRep, setMissLimit, setRepActive } from "@/app/actions/team";
+import { displayPhone } from "@/lib/phone";
+import { addRep, setMissLimit, setRepActive, setStaffPhone } from "@/app/actions/team";
 import { AutoSubmitLimit } from "./AutoSubmitLimit";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +78,26 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               </ActionForm>
             </div>
           </details>
+
+          <section className="panel">
+            <div className="panel-h"><h2>WhatsApp numbers for products</h2></div>
+            <div className="panel-b stack">
+              <p className="small muted">
+                Messages from these numbers to your shop&apos;s WhatsApp add and restock products instead of going to the inbox. The owner&apos;s number also gets a message when buyers are waiting for a sold-out item.
+              </p>
+              {users.filter(u => u.active).map(u => (
+                <ActionForm key={u.id} action={setStaffPhone}>
+                  <input type="hidden" name="id" value={u.id} />
+                  <label className="field">{u.name}{u.role === "OWNER" ? " (owner)" : ""}
+                    <div className="restock">
+                      <input className="input" name="phone" type="tel" inputMode="tel" defaultValue={u.phone ? displayPhone(u.phone) : ""} placeholder="0803 123 4567" aria-label={`${u.name}'s WhatsApp number`} />
+                      <Submit className="btn">Save</Submit>
+                    </div>
+                  </label>
+                </ActionForm>
+              ))}
+            </div>
+          </section>
 
           <section className="panel list">
             {users.filter(u => u.role === "REP").map(u => (

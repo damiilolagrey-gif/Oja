@@ -33,24 +33,30 @@ async function post(url: string, token: string, body: unknown): Promise<SendResu
 export const whatsappConnected = (s: ShopCreds) => Boolean(s.waPhoneNumberId && s.waTokenEnc);
 export const instagramConnected = (s: ShopCreds) => Boolean(s.igAccountId && s.igTokenEnc);
 
-/** Sends the approved restock template. Shops that haven't connected WhatsApp get a simulated send. */
-export async function sendRestockTemplate(
-  shop: ShopCreds,
-  to: string,
-  vars: [product: string, shopName: string, unitsLeft: string, price: string],
-): Promise<SendResult> {
+/** Sends an approved WhatsApp template. Shops that haven't connected WhatsApp get a simulated send. */
+async function sendTemplate(shop: ShopCreds, to: string, name: string, vars: string[]): Promise<SendResult> {
   if (!whatsappConnected(shop)) return { status: "simulated", externalId: null };
   return post(`https://graph.facebook.com/${version()}/${shop.waPhoneNumberId}/messages`, decrypt(shop.waTokenEnc!), {
     messaging_product: "whatsapp",
     to,
     type: "template",
     template: {
-      name: process.env.WA_RESTOCK_TEMPLATE || "back_in_stock",
+      name,
       language: { code: process.env.WA_TEMPLATE_LANG || "en" },
       components: [{ type: "body", parameters: vars.map(text => ({ type: "text", text })) }],
     },
   });
 }
+
+export const sendRestockTemplate = (
+  shop: ShopCreds,
+  to: string,
+  vars: [product: string, shopName: string, unitsLeft: string, price: string],
+) => sendTemplate(shop, to, process.env.WA_RESTOCK_TEMPLATE || "back_in_stock", vars);
+
+/** Tells shop staff how many buyers are waiting; it opens the chat they answer with "restock 10". */
+export const sendDemandTemplate = (shop: ShopCreds, to: string, vars: [waiting: string, product: string]) =>
+  sendTemplate(shop, to, process.env.WA_DEMAND_TEMPLATE || "waitlist_demand", vars);
 
 /** Free-form WhatsApp text. Meta only delivers it within 24 hours of the buyer's last message. */
 export async function sendWhatsAppText(shop: ShopCreds, to: string, text: string): Promise<SendResult> {
@@ -93,9 +99,61 @@ export async function getInstagramProfile(shop: ShopCreds, igUserId: string): Pr
   }
 }
 
+export type Media = { mime: string; data: Uint8Array<ArrayBuffer> };
+const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
+
+async function download(url: string, token?: string): Promise<Media | null> {
+  try {
+    const res = await fetch(url, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+    const mime = res.headers.get("content-type")?.split(";")[0] ?? "";
+    if (!res.ok || !mime.startsWith("image/")) return null;
+    const data = new Uint8Array(await res.arrayBuffer());
+    return data.length <= MAX_MEDIA_BYTES ? { mime, data } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetches a photo a staff member sent over WhatsApp. */
+export async function downloadWhatsAppMedia(shop: ShopCreds, mediaId: string): Promise<Media | null> {
+  if (!whatsappConnected(shop)) return null;
+  const token = decrypt(shop.waTokenEnc!);
+  try {
+    const res = await fetch(`https://graph.facebook.com/${version()}/${mediaId}`, { headers: { Authorization: `Bearer ${token}` } });
+    const meta = (await res.json()) as { url?: string };
+    return res.ok && meta.url ? download(meta.url, token) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** An Instagram post's caption and picture (the thumbnail for videos). */
+export async function getInstagramPost(shop: ShopCreds, mediaId: string): Promise<{ caption?: string; image: Media | null }> {
+  if (!instagramConnected(shop)) return { image: null };
+  try {
+    const res = await fetch(`https://graph.instagram.com/${version()}/${mediaId}?fields=caption,media_type,media_url,thumbnail_url`, {
+      headers: { Authorization: `Bearer ${decrypt(shop.igTokenEnc!)}` },
+    });
+    if (!res.ok) return { image: null };
+    const post = (await res.json()) as { caption?: string; media_type?: string; media_url?: string; thumbnail_url?: string };
+    const src = post.media_type === "VIDEO" ? post.thumbnail_url : post.media_url;
+    return { caption: post.caption, image: src ? await download(src) : null };
+  } catch {
+    return { image: null };
+  }
+}
+
 // ---------- Webhook parsing ----------
 
-export type InboundWhatsApp = { phoneNumberId: string; from: string; name: string; text: string; id: string; at: Date };
+export type InboundWhatsApp = {
+  phoneNumberId: string;
+  from: string;
+  name: string;
+  text: string;
+  imageId?: string;
+  id: string;
+  at: Date;
+};
 export type WhatsAppStatus = { id: string; status: string };
 
 type WaValue = {
@@ -107,6 +165,7 @@ type WaValue = {
     timestamp: string;
     type: string;
     text?: { body?: string };
+    image?: { id?: string; caption?: string };
     button?: { text?: string };
     interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } };
   }[];
@@ -123,9 +182,22 @@ export function parseWhatsAppWebhook(body: unknown): { messages: InboundWhatsApp
       if (!v || !phoneNumberId) continue;
       for (const m of v.messages ?? []) {
         const text =
-          m.text?.body ?? m.button?.text ?? m.interactive?.button_reply?.title ?? m.interactive?.list_reply?.title ?? `[${m.type}]`;
+          m.text?.body ??
+          m.image?.caption ??
+          m.button?.text ??
+          m.interactive?.button_reply?.title ??
+          m.interactive?.list_reply?.title ??
+          `[${m.type}]`;
         const name = v.contacts?.find(c => c.wa_id === m.from)?.profile?.name ?? m.from;
-        out.messages.push({ phoneNumberId, from: m.from, name, text, id: m.id, at: new Date(Number(m.timestamp) * 1000) });
+        out.messages.push({
+          phoneNumberId,
+          from: m.from,
+          name,
+          text,
+          imageId: m.image?.id,
+          id: m.id,
+          at: new Date(Number(m.timestamp) * 1000),
+        });
       }
       for (const s of v.statuses ?? []) out.statuses.push({ id: s.id, status: s.status });
     }
@@ -135,13 +207,22 @@ export function parseWhatsAppWebhook(body: unknown): { messages: InboundWhatsApp
 
 export type InboundInstagram =
   | { kind: "dm"; igAccountId: string; from: string; text: string; id: string; at: Date }
-  | { kind: "comment"; igAccountId: string; from: string; username: string; text: string; commentId: string; at: Date };
+  | {
+      kind: "comment";
+      igAccountId: string;
+      from: string;
+      username: string;
+      text: string;
+      commentId: string;
+      mediaId?: string;
+      at: Date;
+    };
 
 type IgEntry = {
   id: string;
   time?: number;
   messaging?: { sender?: { id?: string }; timestamp?: number; message?: { mid?: string; text?: string; is_echo?: boolean } }[];
-  changes?: { field?: string; value?: { id?: string; text?: string; from?: { id?: string; username?: string } } }[];
+  changes?: { field?: string; value?: { id?: string; text?: string; from?: { id?: string; username?: string }; media?: { id?: string } } }[];
 };
 
 export function parseInstagramWebhook(body: unknown): InboundInstagram[] {
@@ -169,6 +250,7 @@ export function parseInstagramWebhook(body: unknown): InboundInstagram[] {
         username: v.from.username ?? v.from.id,
         text: v.text ?? "",
         commentId: v.id,
+        mediaId: v.media?.id,
         at: new Date((e.time ?? Date.now() / 1000) * 1000),
       });
     }

@@ -33,8 +33,15 @@ npm run dev
    - Webhooks: callback URLs are `APP_URL/api/webhooks/whatsapp` and `APP_URL/api/webhooks/instagram`, verify token is `META_WEBHOOK_VERIFY_TOKEN`. Subscribe WhatsApp to `messages`, Instagram to `messages` and `comments`.
    - Copy the app secret into `META_APP_SECRET`. Webhook calls without a valid signature are rejected.
    - Create the restock message template (category *Marketing*), named as in `WA_RESTOCK_TEMPLATE`, with body variables `{{1}}` product, `{{2}}` shop, `{{3}}` units left, `{{4}}` price. Example body: *Good news! {{1}} is back at {{2}}. {{3}} left at {{4}}. Reply YES to reserve yours. Reply STOP to opt out.*
+   - Create the demand template (category *Utility*), named as in `WA_DEMAND_TEMPLATE`, with body variables `{{1}}` number waiting and `{{2}}` product. Example body: *{{1}} people are waiting for {{2}}. Reply with how many you have when it's back, for example 10.*
    - Complete business verification and app review (`whatsapp_business_messaging`, `instagram_business_manage_messages`, `instagram_business_manage_comments`) before real vendors connect.
 4. **Each shop** pastes its WhatsApp phone number ID and a permanent System User token, and its Instagram account ID and token, in Settings. Tokens are encrypted with `TOKEN_ENCRYPTION_KEY`.
+
+## Adding products without typing them in
+
+- **WhatsApp.** On the Team page, the owner saves each staff member's own WhatsApp number. Messages from those numbers to the shop's WhatsApp are product commands and never reach the inbox. A photo captioned `Ankara two-piece 25000 3` adds a product with that photo. Text commands: `add <name> <price> [stock]`, `restock [name] <units>`, `sold out [name]`, `price [name] <price>`, `list`, `help`. Without a name, a command applies to the last product that staff member added, restocked or was told about.
+- **Instagram comments.** When a buyer comments RESTOCK on a post, the post becomes a product (name and price from the caption, photo from the post) and the buyer is sent that product's sign-up link. A caption with no price leaves the product marked *Price needed* until someone sets one.
+- **Demand messages.** When a waitlist reaches 1, 5, 10, 25, 50, 100, 250 or 500 buyers, the owner gets the demand template on WhatsApp. Replying with a number restocks that product and alerts the waitlist.
 
 ## Rules the app enforces
 

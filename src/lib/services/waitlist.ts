@@ -4,6 +4,7 @@ import { db } from "../db";
 import { pickWave } from "../waves";
 import { naira } from "../format";
 import { sendRestockTemplate } from "../meta";
+import { notifyDemand } from "./products";
 
 export const consentText = (shopName: string) =>
   `${shopName} can message me on WhatsApp when this item is back in stock. I can reply STOP at any time.`;
@@ -15,11 +16,13 @@ export async function joinWaitlist(shop: Shop, productId: string, name: string, 
     create: { shopId: shop.id, waPhone, name },
     update: { waOptedOut: false },
   });
-  return db.waitlistEntry.upsert({
+  const entry = await db.waitlistEntry.upsert({
     where: { productId_contactId: { productId: product.id, contactId: contact.id } },
     create: { productId: product.id, contactId: contact.id, source, consentText: consentText(shop.name) },
     update: { status: "WAITING", source, consentText: consentText(shop.name), consentAt: new Date(), alertedAt: null },
   });
+  await notifyDemand(shop, product.id);
+  return entry;
 }
 
 export type RestockResult = { units: number; alerted: number; simulated: number; failed: number; stillWaiting: number };
