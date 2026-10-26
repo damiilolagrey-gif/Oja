@@ -7,6 +7,7 @@ import { normalizeNigerianPhone } from "@/lib/phone";
 import { createRecipient, paystackConfigured, resolveAccount } from "@/lib/paystack";
 import { requireAdmin, requireOwner } from "@/lib/session";
 import { normalizeCac } from "@/lib/verification";
+import { savePickup } from "@/lib/services/delivery";
 import type { FormState } from "@/components/ActionForm";
 
 export async function updateShop(_: FormState, data: FormData): Promise<FormState> {
@@ -122,4 +123,16 @@ export async function reviewVerification(_: FormState, data: FormData): Promise<
   });
   revalidatePath("/app/admin");
   return { ok: approve ? "Approved" : "Rejected" };
+}
+
+export async function savePickupAddress(_: FormState, data: FormData): Promise<FormState> {
+  const owner = await requireOwner();
+  const address = String(data.get("address") ?? "").trim();
+  const city = String(data.get("city") ?? "").trim();
+  const phone = normalizeNigerianPhone(String(data.get("phone") ?? ""));
+  if (address.length < 8 || !city) return { error: "Add the full street address and city riders should come to." };
+  if (!phone) return { error: "Add a phone number the rider can call, like 0803 123 4567." };
+  const r = await savePickup(owner.shop, owner.email, { address, city, phone });
+  revalidatePath("/app/settings");
+  return r;
 }

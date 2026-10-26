@@ -9,6 +9,8 @@ import { requireAdmin, requireUser } from "@/lib/session";
 import { can, dispatchOverdue, DISPUTE_REASONS, escrowConfig, orderTotals } from "@/lib/escrow";
 import { initializeTransaction, paystackConfigured } from "@/lib/paystack";
 import { markDelivered, markPaid, markShipped, refundOrder, release, reportProblem } from "@/lib/services/orders";
+import { book, quote } from "@/lib/services/delivery";
+import { PACKAGE_SIZES, type PackageSize } from "@/lib/shipbubble";
 import type { FormState } from "@/components/ActionForm";
 
 const str = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
@@ -114,6 +116,27 @@ export async function shipOrder(_: FormState, data: FormData): Promise<FormState
   if (!(await markShipped(o.id, courier, str(data, "tracking")))) return { error: "This order can't be marked dispatched now." };
   revalidatePath("/app/orders", "layout");
   return { ok: "Marked dispatched. The buyer can follow it from their tracking link." };
+}
+
+export async function quoteDelivery(_: FormState, data: FormData): Promise<FormState> {
+  const o = await shopOrder(str(data, "id"));
+  if (!o) return { error: "Order not found." };
+  const size = str(data, "size") as PackageSize;
+  if (!(size in PACKAGE_SIZES)) return { error: "Pick a package size." };
+  const weightKg = Number(data.get("weight"));
+  if (!(weightKg > 0 && weightKg <= 50)) return { error: "Enter the weight in kg, for example 1 or 2.5." };
+  const user = await requireUser();
+  const r = await quote(o, user.shop, { size, weightKg });
+  revalidatePath(`/app/orders/${o.id}`);
+  return r;
+}
+
+export async function bookDelivery(_: FormState, data: FormData): Promise<FormState> {
+  const o = await shopOrder(str(data, "id"));
+  if (!o) return { error: "Order not found." };
+  const r = await book(o, str(data, "choice"));
+  revalidatePath("/app/orders", "layout");
+  return r;
 }
 
 export async function deliverOrder(data: FormData) {

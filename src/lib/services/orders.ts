@@ -1,7 +1,7 @@
 import "server-only";
-import type { Order, OrderStatus, Shop } from "@prisma/client";
+import type { Order, OrderStatus, Prisma, Shop } from "@prisma/client";
 import { db } from "../db";
-import { escrowConfig, fromStatuses, payoutKobo, releaseDue, releaseTime } from "../escrow";
+import { escrowConfig, fromStatuses, releaseDue, releaseTime, shopPayoutKobo } from "../escrow";
 import { paystackConfigured, refund as paystackRefund, transfer } from "../paystack";
 import { sendOrderUpdateTemplate } from "../meta";
 
@@ -15,7 +15,7 @@ async function notifyBuyer(shop: Shop, o: Order, update: string) {
  * Moves an order from one of `from` to `to` only if it is still in one of those statuses. Returns the
  * updated order, or null when another request got there first. This is what stops a double payout or refund.
  */
-async function transition(id: string, from: OrderStatus[], to: OrderStatus, data: Partial<Order> = {}) {
+async function transition(id: string, from: OrderStatus[], to: OrderStatus, data: Prisma.OrderUncheckedUpdateManyInput = {}) {
   const res = await db.order.updateMany({ where: { id, status: { in: from } }, data: { ...data, status: to } });
   return res.count ? db.order.findUniqueOrThrow({ where: { id }, include: { shop: true } }) : null;
 }
@@ -34,8 +34,8 @@ export async function markPaid(reference: string, paidKobo: number, simulated = 
   return paid;
 }
 
-export async function markShipped(id: string, courier: string, trackingNote: string) {
-  const o = await transition(id, fromStatuses("ship"), "SHIPPED", { shippedAt: new Date(), courier, trackingNote: trackingNote || null });
+export async function markShipped(id: string, courier: string, trackingNote: string, extra: Prisma.OrderUncheckedUpdateManyInput = {}) {
+  const o = await transition(id, fromStatuses("ship"), "SHIPPED", { ...extra, shippedAt: new Date(), courier, trackingNote: trackingNote || null });
   if (o) await notifyBuyer(o.shop, o, `${o.itemName} is on its way with ${courier}.`);
   return o;
 }
@@ -53,12 +53,12 @@ export async function reportProblem(id: string, reason: string, detail: string) 
   return transition(id, fromStatuses("dispute"), "DISPUTED", { disputedAt: new Date(), disputeReason: reason, disputeDetail: detail || null });
 }
 
-/** Pays the shop: item amount minus commission. Without a payout account the money waits for one. */
+/** Pays the shop: item amount minus commission and any delivery booked through Oja. Without a payout account the money waits for one. */
 export async function release(id: string, from: OrderStatus[] = fromStatuses("release"), note?: string) {
   const cfg = escrowConfig();
   const current = await db.order.findUnique({ where: { id } });
   if (!current) return null;
-  const amount = payoutKobo(current.amountKobo, cfg);
+  const amount = shopPayoutKobo(current.amountKobo, current.shippingKobo, cfg);
   const ref = `payout_${current.reference}`;
   const o = await transition(id, from, "RELEASED", {
     payoutKobo: amount,

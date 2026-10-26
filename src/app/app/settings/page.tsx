@@ -3,9 +3,10 @@ import { requireUser } from "@/lib/session";
 import { displayPhone } from "@/lib/phone";
 import { instagramConnected, whatsappConnected } from "@/lib/meta";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { connectInstagram, connectWhatsApp, disconnect, requestVerification, savePayoutAccount, updateShop } from "@/app/actions/settings";
+import { connectInstagram, connectWhatsApp, disconnect, requestVerification, savePayoutAccount, savePickupAddress, updateShop } from "@/app/actions/settings";
 import { TrustBadge } from "@/components/TrustBadge";
 import { listBanks, paystackConfigured } from "@/lib/paystack";
+import { shipbubbleConfigured } from "@/lib/shipbubble";
 import { logout } from "@/app/actions/auth";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +70,25 @@ export default async function Settings() {
                 <Submit pendingText="Checking with your bank…">{shop.payoutAccountNumber ? "Change account" : "Save payout account"}</Submit>
               </ActionForm>
               <p className="small muted">Your SafePay link for Instagram and TikTok bios: <span className="code">{base}/s/{shop.slug}</span></p>
+            </div>
+          </section>
+
+          <section className="panel" id="delivery">
+            <div className="panel-h">
+              <h2>Delivery pickup</h2>
+              {shop.pickupAddress ? <span className="pill good">Set up</span> : <span className="pill gold">Not set up</span>}
+            </div>
+            <div className="panel-b">
+              <ActionForm action={savePickupAddress}>
+                <p className="small muted">Where riders collect orders when you book delivery from an order. You see each courier&apos;s price first, and it comes out of that order&apos;s payout.</p>
+                <label className="field">Street address<input className="input" name="address" defaultValue={shop.pickupAddress ?? ""} placeholder="12 Admiralty Way, Lekki Phase 1" required /></label>
+                <label className="field">City<input className="input" name="city" defaultValue={shop.pickupCity ?? ""} placeholder="Lagos" required /></label>
+                <label className="field">Phone for the rider
+                  <input className="input" name="phone" type="tel" inputMode="tel" defaultValue={displayPhone(shop.pickupPhone ?? shop.whatsappNumber ?? "")} placeholder="0803 123 4567" required />
+                </label>
+                <Submit pendingText="Checking the address…">Save pickup address</Submit>
+              </ActionForm>
+              {!shipbubbleConfigured() && <p className="small muted">Delivery booking is in test mode: prices are examples and no rider is sent.</p>}
             </div>
           </section>
 
