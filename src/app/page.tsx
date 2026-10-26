@@ -19,6 +19,7 @@ export default async function Landing() {
         <Link href="/login" className="btn">Log in</Link>
       </div>
       <ul className="muted">
+        <li><b>SafePay link</b>: buyers pay into escrow, so they trust you on the first order. You&apos;re paid when they confirm delivery</li>
         <li><b>Waitlists</b> from Instagram DMs, comments and your shop page</li>
         <li><b>Restock alerts</b> on WhatsApp, with YES to reserve</li>
         <li><b>One inbox</b> for Instagram DMs and WhatsApp chats</li>
