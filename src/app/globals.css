@@ -104,7 +104,7 @@ label.field { display: grid; gap: 5px; font-size: 13.5px; font-weight: 600; }
 .notice { padding: 10px 12px; border-radius: 10px; font-size: 13.5px; background: var(--gold-soft); color: var(--gold); }
 .notice.good { background: var(--good-soft); color: var(--good); }
 details > summary { cursor: pointer; list-style: none; }
-details > summary::-webkit-details-marker { display: none; }
+.store details > summary::-webkit-details-marker { display: none; }
 
 .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
 .pill.good { background: var(--good-soft); color: var(--good); }
@@ -171,6 +171,6 @@ code, .code { font-family: var(--mono); font-size: 12.5px; background: var(--bg)
 .steps li.on::before { background: var(--good); }
 .safe { background: var(--good-soft); border-color: transparent; }
 .safe ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
-details > summary { list-style: none; cursor: pointer; }
-details > summary::-webkit-details-marker { display: none; }
-details[open] > summary { margin-bottom: 12px; }
+.store details > summary { list-style: none; cursor: pointer; }
+.store details > summary::-webkit-details-marker { display: none; }
+.store details[open] > summary { margin-bottom: 12px; }
