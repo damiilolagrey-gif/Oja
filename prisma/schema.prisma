@@ -32,6 +32,17 @@ enum WaitlistStatus {
   STOPPED
 }
 
+enum OrderStatus {
+  PENDING    // checkout started, not paid yet
+  PAID       // money held in SafePay, waiting for the shop to dispatch
+  SHIPPED
+  DELIVERED  // shop says delivered; auto-release clock is running
+  DISPUTED   // buyer reported a problem; money frozen until an admin decides
+  RELEASED   // paid out to the shop
+  REFUNDED
+  CANCELLED  // never paid
+}
+
 enum ConversationSource {
   ORGANIC
   ALERT
@@ -67,12 +78,19 @@ model Shop {
   waTokenEnc        String?
   igAccountId       String?  @unique
   igTokenEnc        String?
+  // SafePay payouts. The account name comes from the bank lookup, never typed by the vendor.
+  payoutBankCode      String?
+  payoutBankName      String?
+  payoutAccountNumber String?
+  payoutAccountName   String?
+  paystackRecipient   String?
   createdAt         DateTime @default(now())
 
   users         User[]
   products      Product[]
   contacts      Contact[]
   conversations Conversation[]
+  orders        Order[]
 }
 
 model User {
@@ -103,6 +121,7 @@ model Product {
 
   waitlist      WaitlistEntry[]
   conversations Conversation[]
+  orders        Order[]
 
   @@index([shopId])
 }
@@ -182,4 +201,45 @@ model Message {
   createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  shopId         String
+  shop           Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  reference      String      @unique // sent to Paystack
+  buyerToken     String      @unique // secret in the buyer's tracking link
+  buyerName      String
+  buyerPhone     String      // E.164 digits
+  buyerEmail     String?
+  address        String
+  city           String
+  itemName       String
+  quantity       Int
+  amountKobo     Int         // items
+  feeKobo        Int         // buyer protection fee
+  totalKobo      Int         // what the buyer pays
+  status         OrderStatus @default(PENDING)
+  simulated      Boolean     @default(false) // paid in test mode, no real money moved
+  paidAt         DateTime?
+  shippedAt      DateTime?
+  courier        String?
+  trackingNote   String?
+  deliveredAt    DateTime?
+  releaseAt      DateTime?   // auto-release time, set when marked delivered
+  disputedAt     DateTime?
+  disputeReason  String?
+  disputeDetail  String?
+  resolvedAt     DateTime?
+  resolutionNote String?
+  // pending | success | failed | simulated | awaiting_account
+  payoutStatus   String?
+  payoutKobo     Int?
+  payoutRef      String?     @unique
+  createdAt      DateTime    @default(now())
+
+  @@index([shopId, status])
+  @@index([status, releaseAt])
 }

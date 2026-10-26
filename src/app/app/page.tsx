@@ -12,7 +12,7 @@ export default async function Home() {
   const shop = user.shop;
   const now = new Date();
   const since = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
-  const [convs, products, waitingCount, alertsSent] = await Promise.all([
+  const [convs, products, waitingCount, alertsSent, held] = await Promise.all([
     db.conversation.findMany({ where: { shopId: shop.id, startedAt: { gte: since } }, include: { contact: true, rep: true } }),
     db.product.findMany({
       where: { shopId: shop.id, archived: false, waitlist: { some: { status: "WAITING" } } },
@@ -20,6 +20,7 @@ export default async function Home() {
     }),
     db.waitlistEntry.count({ where: { status: "WAITING", product: { shopId: shop.id, archived: false } } }),
     db.waitlistEntry.count({ where: { alertedAt: { gte: since }, product: { shopId: shop.id } } }),
+    db.order.aggregate({ where: { shopId: shop.id, status: { in: ["PAID", "SHIPPED", "DELIVERED", "DISPUTED"] } }, _sum: { amountKobo: true }, _count: true }),
   ]);
   const recovered = recoveredByAlerts(convs);
   const replied = convs.filter(c => c.firstReplyAt);
@@ -49,6 +50,11 @@ export default async function Home() {
           <span className="val num">{naira(recovered.kobo)}</span>
           <span className="sub small">{recovered.orders} {recovered.orders === 1 ? "order" : "orders"} from {alertsSent} {alertsSent === 1 ? "alert" : "alerts"}</span>
         </div>
+        <Link href="/app/orders" className="panel kpi" style={{ textDecoration: "none", color: "inherit" }}>
+          <span className="lab">Held in SafePay</span>
+          <span className="val num">{naira(held._sum.amountKobo ?? 0)}</span>
+          <span className="sub small">{held._count} open {held._count === 1 ? "order" : "orders"}</span>
+        </Link>
         <div className="panel kpi">
           <span className="lab">Buyers waiting for restocks</span>
           <span className="val num">{waitingCount}</span>

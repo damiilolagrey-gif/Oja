@@ -52,15 +52,19 @@ export default async function Storefront({ params, searchParams }: { params: Pro
                 <div className="stack" style={{ gap: 2 }}><b>{p.name}</b><span className="num small">{naira(p.priceKobo)}</span></div>
                 {p.stock === 0 ? (
                   <Link className="btn primary block" href={`/s/${shop.slug}/notify/${p.id}${ref ? `?ref=${encodeURIComponent(ref)}` : ""}`}>Notify me</Link>
-                ) : order ? (
-                  <a className="btn wa block" href={order}>Order</a>
-                ) : null}
+                ) : (
+                  <>
+                    <Link className="btn primary block" href={`/s/${shop.slug}/buy/${p.id}`}>Pay safely</Link>
+                    {order && <a className="small" href={order}>Ask the shop first</a>}
+                  </>
+                )}
               </div>
             </article>
           );
         })}
       </div>
       {shop.products.length === 0 && <p className="muted">No items yet.</p>}
+      <p className="small muted">Pay safely: your money is held by Oja SafePay and only released to {shop.name} after you confirm delivery.</p>
       <p className="foot">Sell on Instagram? <Link href="/">Get your own waitlist free with Oja</Link></p>
     </main>
   );

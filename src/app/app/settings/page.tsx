@@ -3,10 +3,17 @@ import { requireUser } from "@/lib/session";
 import { displayPhone } from "@/lib/phone";
 import { instagramConnected, whatsappConnected } from "@/lib/meta";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { connectInstagram, connectWhatsApp, disconnect, updateShop } from "@/app/actions/settings";
+import { connectInstagram, connectWhatsApp, disconnect, savePayoutAccount, updateShop } from "@/app/actions/settings";
+import { listBanks, paystackConfigured } from "@/lib/paystack";
 import { logout } from "@/app/actions/auth";
 
 export const dynamic = "force-dynamic";
+
+// Used only in test mode, when there is no Paystack key to fetch the full list.
+const TEST_BANKS = [
+  ["044", "Access Bank"], ["011", "First Bank of Nigeria"], ["058", "Guaranty Trust Bank"], ["50211", "Kuda Bank"],
+  ["50515", "Moniepoint MFB"], ["999992", "OPay"], ["999991", "PalmPay"], ["033", "United Bank For Africa"], ["035", "Wema Bank"], ["057", "Zenith Bank"],
+].map(([code, name]) => ({ code, name }));
 
 export default async function Settings() {
   const user = await requireUser();
@@ -14,6 +21,7 @@ export default async function Settings() {
   const h = await headers();
   const base = process.env.APP_URL || `https://${h.get("host")}`;
   const isOwner = user.role === "OWNER";
+  const banks = isOwner ? (paystackConfigured() ? await listBanks().then(r => (r.ok ? r.data : [])) : TEST_BANKS) : [];
 
   return (
     <>
@@ -36,6 +44,30 @@ export default async function Settings() {
                 <Submit>Save</Submit>
               </ActionForm>
               <p className="small muted">Your shop page: <span className="code">{base}/s/{shop.slug}</span></p>
+            </div>
+          </section>
+
+          <section className="panel" id="payouts">
+            <div className="panel-h">
+              <h2>SafePay payouts</h2>
+              {shop.payoutAccountNumber ? <span className="pill good">Set up</span> : <span className="pill gold">Not set up</span>}
+            </div>
+            <div className="panel-b">
+              {shop.payoutAccountNumber && (
+                <p className="small">Paying into <b>{shop.payoutAccountName}</b>, {shop.payoutBankName} {shop.payoutAccountNumber}</p>
+              )}
+              <ActionForm action={savePayoutAccount}>
+                <p className="small muted">When a buyer confirms delivery, we transfer the item amount minus our fee to this account. It must be in your or your business&apos;s name.</p>
+                <label className="field">Bank
+                  <select className="input" name="bank" required defaultValue={shop.payoutBankCode ? `${shop.payoutBankCode}|${shop.payoutBankName}` : ""}>
+                    <option value="" disabled>Choose your bank</option>
+                    {banks.map(b => <option key={b.code + b.name} value={`${b.code}|${b.name}`}>{b.name}</option>)}
+                  </select>
+                </label>
+                <label className="field">Account number<input className="input" name="accountNumber" inputMode="numeric" maxLength={10} defaultValue={shop.payoutAccountNumber ?? ""} required /></label>
+                <Submit pendingText="Checking with your bank…">{shop.payoutAccountNumber ? "Change account" : "Save payout account"}</Submit>
+              </ActionForm>
+              <p className="small muted">Your SafePay link for Instagram and TikTok bios: <span className="code">{base}/s/{shop.slug}</span></p>
             </div>
           </section>
 

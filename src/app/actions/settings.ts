@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { normalizeNigerianPhone } from "@/lib/phone";
+import { createRecipient, paystackConfigured, resolveAccount } from "@/lib/paystack";
 import { requireOwner } from "@/lib/session";
 import type { FormState } from "@/components/ActionForm";
 
@@ -61,4 +62,32 @@ export async function disconnect(data: FormData) {
     data: which === "whatsapp" ? { waPhoneNumberId: null, waTokenEnc: null } : { igAccountId: null, igTokenEnc: null },
   });
   revalidatePath("/app/settings");
+}
+
+/** Saves the bank account SafePay pays this shop into. The account name always comes from the bank lookup. */
+export async function savePayoutAccount(_: FormState, data: FormData): Promise<FormState> {
+  const owner = await requireOwner();
+  const [bankCode, bankName] = String(data.get("bank") ?? "").split("|");
+  const accountNumber = String(data.get("accountNumber") ?? "").replace(/\D/g, "");
+  if (!bankCode || !bankName) return { error: "Pick your bank" };
+  if (!/^\d{10}$/.test(accountNumber)) return { error: "Account numbers are 10 digits" };
+  if (!paystackConfigured()) {
+    await db.shop.update({
+      where: { id: owner.shopId },
+      data: { payoutBankCode: bankCode, payoutBankName: bankName, payoutAccountNumber: accountNumber, payoutAccountName: "Not checked (test mode)", paystackRecipient: null },
+    });
+    revalidatePath("/app/settings");
+    return { ok: "Saved in test mode. The name will be checked with your bank once payments go live." };
+  }
+  const resolved = await resolveAccount(accountNumber, bankCode);
+  if (!resolved.ok) return { error: "Your bank couldn't find that account. Check the number and bank." };
+  const name = resolved.data.account_name;
+  const recipient = await createRecipient({ name, accountNumber, bankCode });
+  if (!recipient.ok) return { error: `Couldn't set up payouts: ${recipient.error}` };
+  await db.shop.update({
+    where: { id: owner.shopId },
+    data: { payoutBankCode: bankCode, payoutBankName: bankName, payoutAccountNumber: accountNumber, payoutAccountName: name, paystackRecipient: recipient.data.recipient_code },
+  });
+  revalidatePath("/app/settings");
+  return { ok: `Payouts will go to ${name}.` };
 }

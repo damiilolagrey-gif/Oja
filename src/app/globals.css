@@ -56,7 +56,7 @@ p { margin: 0; }
 .brand { font-family: var(--display); font-weight: 700; font-size: 22px; text-decoration: none; color: var(--ink); }
 .shopname { font-size: 13px; color: var(--muted); text-align: right; }
 .content { padding: 16px; max-width: 1080px; margin: 0 auto; display: grid; gap: 16px; }
-.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--panel); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--panel); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(var(--tabs, 5), 1fr); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .tabbar a { display: grid; justify-items: center; gap: 2px; padding: 8px 2px 10px; font-size: 11.5px; font-weight: 600; color: var(--muted); text-decoration: none; position: relative; }
 .tabbar a svg { width: 22px; height: 22px; }
 .tabbar a[aria-current="page"] { color: var(--accent); }
@@ -162,3 +162,15 @@ details > summary::-webkit-details-marker { display: none; }
 .landing h1 { font-size: 36px; }
 .landing ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 code, .code { font-family: var(--mono); font-size: 12.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; overflow-wrap: anywhere; }
+
+/* SafePay */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-size: 12px; color: var(--muted); }
+.steps li { display: grid; gap: 6px; }
+.steps li::before { content: ""; height: 6px; border-radius: 3px; background: var(--line); }
+.steps li.on { color: var(--ink); font-weight: 600; }
+.steps li.on::before { background: var(--good); }
+.safe { background: var(--good-soft); border-color: transparent; }
+.safe ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+details > summary { list-style: none; cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] > summary { margin-bottom: 12px; }

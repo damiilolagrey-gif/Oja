@@ -56,3 +56,15 @@ export async function requireOwner() {
   if (user.role !== "OWNER") redirect("/app");
   return user;
 }
+
+/** Oja staff who settle disputes. Set ADMIN_EMAILS to a comma-separated list of their login emails. */
+export function isAdminEmail(email: string) {
+  const list = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+  return list.includes(email.toLowerCase());
+}
+
+export async function requireAdmin() {
+  const user = await requireUser();
+  if (!isAdminEmail(user.email)) redirect("/app");
+  return user;
+}

@@ -26,7 +26,8 @@ export default async function Chat({ params }: { params: Promise<{ id: string }>
   const w = waitingMinutes(c, new Date());
   const shop = user.shop;
   const quick = [
-    c.product && c.product.stock > 0 && `${c.product.name} is ${naira(c.product.priceKobo)}.${shop.bankDetails ? ` Pay to ${shop.bankDetails} and send your receipt here.` : ""}`,
+    c.product && c.product.stock > 0 && `${c.product.name} is ${naira(c.product.priceKobo)}. Pay safely here, your money is held until it reaches you: ${process.env.APP_URL ?? ""}/s/${shop.slug}/buy/${c.product.id}`,
+    c.product && c.product.stock > 0 && shop.bankDetails && `${c.product.name} is ${naira(c.product.priceKobo)}. Pay to ${shop.bankDetails} and send your receipt here.`,
     c.product && c.product.stock === 0 && `Sorry, ${c.product.name} is sold out right now. Tap here and we'll WhatsApp you once it's back: ${process.env.APP_URL ?? ""}/s/${shop.slug}/notify/${c.product.id}?ref=${c.channel === "INSTAGRAM" ? "ig-dm" : "wa"}`,
     "Payment received, thank you! We'll dispatch today.",
     "Where should we deliver to?",
