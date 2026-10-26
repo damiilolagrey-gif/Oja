@@ -3,6 +3,8 @@
 Mobile web app for Nigerian vendors who sell on Instagram and WhatsApp.
 
 - **SafePay checkout.** A "Pay safely" link for each item. Buyers pay through Paystack into escrow, follow the order on a tracking page, and the shop is paid only when they confirm delivery (or 48 hours after delivery with no complaint). Buyers can report a problem to freeze the money, and Oja staff settle disputes with a refund or a release.
+- **AI drafts.** In any chat, "Draft reply with AI" writes the next message from the conversation and your catalogue (prices, stock, Pay safely and notify links). When a buyer goes quiet, Oja flags the chat on Home while there is still time inside WhatsApp's 24-hour window and drafts a follow-up instead. A rep always reads and sends it.
+- **Verified badges.** "Bank verified" appears once a payout account is confirmed with the bank. "Business verified" appears after Oja staff check the shop's CAC number on the public register. Buyers see the badge on the shop page and checkout.
 - **Waitlists** for sold-out items, filled from Instagram DMs, Instagram comments ("comment RESTOCK"), WhatsApp and the shop page.
 - **Restock alerts** sent on WhatsApp to the first wave of the waitlist (twice as many buyers as units, oldest first). A reply goes straight into the inbox, tagged "from alert", so recovered sales are counted.
 - **One inbox** for Instagram DMs and WhatsApp chats, with chats assigned to sales reps.
@@ -57,6 +59,14 @@ Set up:
 4. **Order updates on WhatsApp (optional).** Create a *Utility* template with body variables `{{1}}` shop, `{{2}}` update, `{{3}}` link, e.g. *{{1}}: {{2}} Track your order: {{3}}*, and set `WA_ORDER_TEMPLATE`. Buyers are messaged when paid, dispatched and delivered.
 
 Before taking real money, get legal advice on holding buyer funds in Nigeria, and confirm with Paystack that your account may be used this way.
+
+## AI drafts
+
+Set `ANTHROPIC_API_KEY`. Drafts use Claude Opus 5.5 at low effort (short chat replies don't need more), with server-side refusal fallback turned on. Each draft sends the last 20 messages of that chat and up to 40 products. Without a key the button is hidden.
+
+## Business verification
+
+Shops request it in Settings with their RC or BN number and registered name. Admins (`ADMIN_EMAILS`) see requests in the Disputes tab, check them on the CAC public search and against the bank account name, then approve or reject with a reason.
 
 ## Rules the app enforces
 

@@ -84,6 +84,12 @@ model Shop {
   payoutAccountNumber String?
   payoutAccountName   String?
   paystackRecipient   String?
+  // Business verification: the shop submits its CAC registration, Oja staff check it and approve.
+  cacNumber              String?
+  registeredName         String?
+  verificationRequestedAt DateTime?
+  businessVerifiedAt     DateTime?
+  verificationNote       String?
   createdAt         DateTime @default(now())
 
   users         User[]

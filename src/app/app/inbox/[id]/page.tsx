@@ -8,6 +8,9 @@ import { ActionForm, Submit } from "@/components/ActionForm";
 import { closeLost, closeSale, reply, updateConversation } from "@/app/actions/inbox";
 import { AutoSubmitSelect } from "./AutoSubmitSelect";
 import { QuickReplies } from "./QuickReplies";
+import { AiDraft } from "./AiDraft";
+import { aiConfigured } from "@/lib/ai";
+import { followUpDue } from "@/lib/followup";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +27,7 @@ export default async function Chat({ params }: { params: Promise<{ id: string }>
     db.product.findMany({ where: { shopId: user.shopId, archived: false }, orderBy: { name: "asc" } }),
   ]);
   const w = waitingMinutes(c, new Date());
+  const follow = followUpDue(c, new Date());
   const shop = user.shop;
   const quick = [
     c.product && c.product.stock > 0 && `${c.product.name} is ${naira(c.product.priceKobo)}. Pay safely here, your money is held until it reaches you: ${process.env.APP_URL ?? ""}/s/${shop.slug}/buy/${c.product.id}`,
@@ -65,6 +69,8 @@ export default async function Chat({ params }: { params: Promise<{ id: string }>
 
       {c.status === "OPEN" ? (
         <div className="composer">
+          {follow.due && <p className="small notice">The buyer went quiet. Follow up within {Math.max(1, Math.floor(follow.hoursLeft))}h, before WhatsApp and Instagram stop delivering free replies.</p>}
+          {aiConfigured() && <AiDraft conversationId={c.id} followUp={follow.due} />}
           <QuickReplies options={quick} />
           <ActionForm action={reply} className="send">
             <input type="hidden" name="conversationId" value={c.id} />

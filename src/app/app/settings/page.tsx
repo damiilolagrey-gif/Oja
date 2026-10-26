@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/session";
 import { displayPhone } from "@/lib/phone";
 import { instagramConnected, whatsappConnected } from "@/lib/meta";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { connectInstagram, connectWhatsApp, disconnect, savePayoutAccount, updateShop } from "@/app/actions/settings";
+import { connectInstagram, connectWhatsApp, disconnect, requestVerification, savePayoutAccount, updateShop } from "@/app/actions/settings";
+import { TrustBadge } from "@/components/TrustBadge";
 import { listBanks, paystackConfigured } from "@/lib/paystack";
 import { logout } from "@/app/actions/auth";
 
@@ -68,6 +69,28 @@ export default async function Settings() {
                 <Submit pendingText="Checking with your bank…">{shop.payoutAccountNumber ? "Change account" : "Save payout account"}</Submit>
               </ActionForm>
               <p className="small muted">Your SafePay link for Instagram and TikTok bios: <span className="code">{base}/s/{shop.slug}</span></p>
+            </div>
+          </section>
+
+          <section className="panel" id="verification">
+            <div className="panel-h">
+              <h2>Verification</h2>
+              <TrustBadge shop={shop} />
+            </div>
+            <div className="panel-b">
+              <p className="small muted">Buyers see a badge on your shop page and checkout. <b>Bank verified</b> comes automatically once your payout account is checked. <b>Business verified</b> needs your CAC registration.</p>
+              {shop.businessVerifiedAt ? (
+                <p className="small">Verified as <b>{shop.registeredName}</b> ({shop.cacNumber}).</p>
+              ) : shop.verificationRequestedAt ? (
+                <p className="notice small">We&apos;re checking {shop.registeredName} ({shop.cacNumber}). This usually takes up to 2 working days.</p>
+              ) : (
+                <ActionForm action={requestVerification}>
+                  {shop.verificationNote && <p className="error small">Last check: {shop.verificationNote}</p>}
+                  <label className="field">CAC number<input className="input" name="cacNumber" placeholder="RC 1234567 or BN 3456789" defaultValue={shop.cacNumber ?? ""} required /></label>
+                  <label className="field">Registered business name<input className="input" name="registeredName" defaultValue={shop.registeredName ?? ""} required /></label>
+                  <Submit>Request business verification</Submit>
+                </ActionForm>
+              )}
             </div>
           </section>
 

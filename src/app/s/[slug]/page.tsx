@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { naira } from "@/lib/format";
+import { TrustBadge } from "@/components/TrustBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function Storefront({ params, searchParams }: { params: Pro
         <div className="av">{shop.name[0]}</div>
         <div>
           <h1 style={{ fontSize: 22 }}>{shop.name}</h1>
+          <TrustBadge shop={shop} />
           {shop.igHandle && <a href={`https://instagram.com/${shop.igHandle}`} className="small">@{shop.igHandle}</a>}
         </div>
       </header>
