@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/session";
 import { ago, naira } from "@/lib/format";
 import { recoveredByAlerts, waitingMinutes } from "@/lib/metrics";
 import { whatsappConnected } from "@/lib/meta";
+import { followUpDue } from "@/lib/followup";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export default async function Home() {
   const shop = user.shop;
   const now = new Date();
   const since = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
-  const [convs, products, waitingCount, alertsSent, held] = await Promise.all([
+  const [convs, products, waitingCount, alertsSent, held, recent] = await Promise.all([
     db.conversation.findMany({ where: { shopId: shop.id, startedAt: { gte: since } }, include: { contact: true, rep: true } }),
     db.product.findMany({
       where: { shopId: shop.id, archived: false, waitlist: { some: { status: "WAITING" } } },
@@ -21,7 +22,15 @@ export default async function Home() {
     db.waitlistEntry.count({ where: { status: "WAITING", product: { shopId: shop.id, archived: false } } }),
     db.waitlistEntry.count({ where: { alertedAt: { gte: since }, product: { shopId: shop.id } } }),
     db.order.aggregate({ where: { shopId: shop.id, status: { in: ["PAID", "SHIPPED", "DELIVERED", "DISPUTED"] } }, _sum: { amountKobo: true }, _count: true }),
+    db.conversation.findMany({
+      where: { shopId: shop.id, status: "OPEN", lastBuyerAt: { gte: new Date(now.getTime() - 24 * 3600_000) } },
+      include: { contact: true, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
+    }),
   ]);
+  const followUps = recent
+    .map(c => ({ c, f: followUpDue(c, now) }))
+    .filter(x => x.f.due)
+    .sort((a, b) => a.f.hoursLeft - b.f.hoursLeft);
   const recovered = recoveredByAlerts(convs);
   const replied = convs.filter(c => c.firstReplyAt);
   const avg = replied.length ? replied.reduce((s, c) => s + (c.firstReplyAt!.getTime() - c.startedAt.getTime()), 0) / replied.length / 60000 : null;
@@ -86,6 +95,23 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      {followUps.length > 0 && (
+        <section className="panel">
+          <div className="panel-h"><h2>Follow up before it&apos;s too late</h2></div>
+          <div className="list">
+            {followUps.slice(0, 5).map(({ c, f }) => (
+              <Link key={c.id} href={`/app/inbox/${c.id}`} className="item">
+                <div className="row between">
+                  <span className="row"><span className={`ch ${c.channel}`}>{c.channel === "INSTAGRAM" ? "IG" : "WA"}</span><b>{c.contact.name}</b></span>
+                  <span className={`pill ${f.hoursLeft < 4 ? "bad" : "gold"}`}>{Math.max(1, Math.floor(f.hoursLeft))}h left</span>
+                </div>
+                <span className="small muted">Went quiet after your last message. Free replies stop 24 hours after their last message.</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <div className="panel-h"><h2>Most-wanted sold-out items</h2><Link href="/app/products" className="small">Products</Link></div>

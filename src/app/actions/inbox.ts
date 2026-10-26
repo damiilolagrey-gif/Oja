@@ -7,6 +7,7 @@ import { toKobo } from "@/lib/format";
 import { normalizeNigerianPhone } from "@/lib/phone";
 import { requireUser } from "@/lib/session";
 import { markLost, markWon, receiveMessage, sendReply } from "@/lib/services/conversations";
+import { draftMessage } from "@/lib/ai";
 import type { FormState } from "@/components/ActionForm";
 
 export async function reply(_: FormState, data: FormData): Promise<FormState> {
@@ -65,4 +66,35 @@ export async function simulateBuyerMessage(_: FormState, data: FormData): Promis
   revalidatePath("/app", "layout");
   if (convo) redirect(`/app/inbox/${convo.id}`);
   return undefined;
+}
+
+/** Drafts a reply (or a follow-up when the buyer went quiet) for the rep to check and send. */
+export async function draftWithAi(conversationId: string, mode: "reply" | "follow_up"): Promise<{ text: string } | { error: string }> {
+  const user = await requireUser();
+  const c = await db.conversation.findFirst({
+    where: { id: conversationId, shopId: user.shopId },
+    include: { contact: true, product: true, messages: { orderBy: { createdAt: "desc" }, take: 20 } },
+  });
+  if (!c) return { error: "Chat not found" };
+  const products = await db.product.findMany({ where: { shopId: user.shopId, archived: false }, orderBy: { createdAt: "desc" }, take: 40 });
+  const base = process.env.APP_URL ?? "";
+  const shop = user.shop;
+  return draftMessage(
+    {
+      shopName: shop.name,
+      channel: c.channel,
+      buyerName: c.contact.name,
+      bankDetails: shop.bankDetails,
+      focusProduct: c.product?.name ?? null,
+      products: products.map(p => ({
+        name: p.name,
+        priceKobo: p.priceKobo,
+        stock: p.stock,
+        buyLink: `${base}/s/${shop.slug}/buy/${p.id}`,
+        notifyLink: `${base}/s/${shop.slug}/notify/${p.id}?ref=${c.channel === "INSTAGRAM" ? "ig-dm" : "wa"}`,
+      })),
+      messages: [...c.messages].reverse().map(m => ({ from: m.author === "BUYER" ? "buyer" : m.author === "REP" ? "shop" : "system", text: m.text, at: m.createdAt })),
+    },
+    mode,
+  );
 }

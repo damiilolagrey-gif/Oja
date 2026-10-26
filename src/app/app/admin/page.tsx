@@ -4,15 +4,17 @@ import { naira } from "@/lib/format";
 import { displayPhone } from "@/lib/phone";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { adminResolve } from "@/app/actions/orders";
+import { reviewVerification } from "@/app/actions/settings";
 
 export const dynamic = "force-dynamic";
 
 /** Oja staff only (ADMIN_EMAILS): settle disputes across every shop. */
 export default async function Admin() {
   await requireAdmin();
-  const [disputes, stuck] = await Promise.all([
+  const [disputes, stuck, verifications] = await Promise.all([
     db.order.findMany({ where: { status: "DISPUTED" }, include: { shop: true }, orderBy: { disputedAt: "asc" } }),
     db.order.findMany({ where: { status: "RELEASED", payoutStatus: { in: ["failed", "awaiting_account"] } }, include: { shop: true } }),
+    db.shop.findMany({ where: { verificationRequestedAt: { not: null } }, orderBy: { verificationRequestedAt: "asc" } }),
   ]);
 
   return (
@@ -46,6 +48,34 @@ export default async function Admin() {
           </div>
         </section>
       ))}
+
+      <section className="panel">
+        <div className="panel-h"><h2>Business verification requests</h2></div>
+        <div className="list">
+          {verifications.length === 0 && <p className="item muted">None waiting.</p>}
+          {verifications.map(s => (
+            <div key={s.id} className="item stack">
+              <b>{s.name}</b>
+              <span className="small">Says it is <b>{s.registeredName}</b>, {s.cacNumber}</span>
+              <span className="small muted">
+                Bank account name: {s.payoutAccountName ?? "no payout account yet"}. Check the number and name on the{" "}
+                <a href="https://search.cac.gov.ng/" target="_blank" rel="noreferrer">CAC public search</a>, and that the bank name matches.
+              </span>
+              <ActionForm action={reviewVerification} className="row">
+                <input type="hidden" name="shopId" value={s.id} />
+                <input type="hidden" name="decision" value="approve" />
+                <Submit className="btn primary" pendingText="Approving…">Approve</Submit>
+              </ActionForm>
+              <ActionForm action={reviewVerification} className="row">
+                <input type="hidden" name="shopId" value={s.id} />
+                <input type="hidden" name="decision" value="reject" />
+                <input className="input" name="note" placeholder="Why it was rejected" style={{ flex: 1, minWidth: 0 }} />
+                <Submit className="btn" pendingText="…">Reject</Submit>
+              </ActionForm>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {stuck.length > 0 && (
         <section className="panel">

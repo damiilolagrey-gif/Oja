@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { normalizeNigerianPhone } from "@/lib/phone";
 import { createRecipient, paystackConfigured, resolveAccount } from "@/lib/paystack";
-import { requireOwner } from "@/lib/session";
+import { requireAdmin, requireOwner } from "@/lib/session";
+import { normalizeCac } from "@/lib/verification";
 import type { FormState } from "@/components/ActionForm";
 
 export async function updateShop(_: FormState, data: FormData): Promise<FormState> {
@@ -90,4 +91,35 @@ export async function savePayoutAccount(_: FormState, data: FormData): Promise<F
   });
   revalidatePath("/app/settings");
   return { ok: `Payouts will go to ${name}.` };
+}
+
+export async function requestVerification(_: FormState, data: FormData): Promise<FormState> {
+  const owner = await requireOwner();
+  const cacNumber = normalizeCac(String(data.get("cacNumber") ?? ""));
+  const registeredName = String(data.get("registeredName") ?? "").trim();
+  if (!cacNumber) return { error: "Enter the RC or BN number from your CAC certificate, e.g. RC 1234567" };
+  if (registeredName.length < 3) return { error: "Enter the business name exactly as registered with CAC" };
+  await db.shop.update({
+    where: { id: owner.shopId },
+    data: { cacNumber, registeredName, verificationRequestedAt: new Date(), businessVerifiedAt: null, verificationNote: null },
+  });
+  revalidatePath("/app/settings");
+  return { ok: "Sent. We usually check within 2 working days." };
+}
+
+/** Oja staff approve or reject a shop's business verification after checking CAC's public register. */
+export async function reviewVerification(_: FormState, data: FormData): Promise<FormState> {
+  await requireAdmin();
+  const shopId = String(data.get("shopId"));
+  const approve = data.get("decision") === "approve";
+  const note = String(data.get("note") ?? "").trim();
+  if (!approve && !note) return { error: "Say why, so the shop knows what to fix" };
+  await db.shop.update({
+    where: { id: shopId },
+    data: approve
+      ? { businessVerifiedAt: new Date(), verificationRequestedAt: null, verificationNote: note || null }
+      : { businessVerifiedAt: null, verificationRequestedAt: null, verificationNote: note },
+  });
+  revalidatePath("/app/admin");
+  return { ok: approve ? "Approved" : "Rejected" };
 }

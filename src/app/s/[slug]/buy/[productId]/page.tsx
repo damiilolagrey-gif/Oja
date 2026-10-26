@@ -6,6 +6,7 @@ import { naira } from "@/lib/format";
 import { escrowConfig } from "@/lib/escrow";
 import { paystackConfigured } from "@/lib/paystack";
 import { ActionForm, Submit } from "@/components/ActionForm";
+import { TrustBadge } from "@/components/TrustBadge";
 import { startCheckout } from "@/app/actions/orders";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function Buy({ params }: { params: Promise<{ slug: string; 
 
   return (
     <main className="store">
-      <Link href={`/s/${shop.slug}`} className="small">← {shop.name}</Link>
+      <div className="row between"><Link href={`/s/${shop.slug}`} className="small">← {shop.name}</Link><TrustBadge shop={shop} /></div>
       <div className="row" style={{ gap: 14, flexWrap: "nowrap" }}>
         {product.imageUrl ? <img src={product.imageUrl} alt="" className="thumb" style={{ width: 72, height: 72 }} /> : <div className="thumb" style={{ width: 72, height: 72 }}>{product.name[0]}</div>}
         <div className="stack" style={{ gap: 2 }}>

@@ -174,3 +174,6 @@ code, .code { font-family: var(--mono); font-size: 12.5px; background: var(--bg)
 .store details > summary { list-style: none; cursor: pointer; }
 .store details > summary::-webkit-details-marker { display: none; }
 .store details[open] > summary { margin-bottom: 12px; }
+.btn.ai { border-color: var(--accent); color: var(--accent); justify-self: start; }
+.badge-v { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--good-soft); color: var(--good); }
+.badge-v.bank { background: var(--accent-soft); color: var(--accent); }
