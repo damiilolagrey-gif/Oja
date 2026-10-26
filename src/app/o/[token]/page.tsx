@@ -42,7 +42,7 @@ export default async function Track({ params }: { params: Promise<{ token: strin
       <section className="panel panel-b stack">
         {o.status === "PENDING" && <p>We haven&apos;t received your payment yet. If you paid, this page updates within a few minutes.</p>}
         {o.status === "PAID" && <p>Your {naira(o.totalKobo)} is held safely. {o.shop.name} has been told to dispatch your order.</p>}
-        {o.status === "SHIPPED" && <p>On its way with <b>{o.courier}</b>{o.trackingNote ? `: ${o.trackingNote}` : ""}. Check the item when it arrives before you confirm.</p>}
+        {o.status === "SHIPPED" && <p>On its way with <b>{o.courier}</b>{o.trackingNote ? `: ${o.trackingNote}` : ""}.{o.trackingUrl && <> <a href={o.trackingUrl} target="_blank" rel="noreferrer">Track the rider</a>.</>} Check the item when it arrives before you confirm.</p>}
         {o.status === "DELIVERED" && o.releaseAt && (
           <p>Marked delivered. If there&apos;s a problem, report it before <b>{when(o.releaseAt)}</b>. After that the shop is paid automatically.</p>
         )}

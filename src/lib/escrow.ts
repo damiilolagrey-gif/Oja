@@ -33,6 +33,11 @@ export function payoutKobo(amountKobo: number, cfg: EscrowConfig): number {
   return amountKobo - Math.round((amountKobo * cfg.commissionBps) / 10000);
 }
 
+/** What the shop is actually paid: the payout above minus any delivery Oja booked for it. Never below zero. */
+export function shopPayoutKobo(amountKobo: number, shippingKobo: number, cfg: EscrowConfig): number {
+  return Math.max(0, payoutKobo(amountKobo, cfg) - shippingKobo);
+}
+
 export type OrderAction = "ship" | "deliver" | "confirm" | "dispute" | "cancel" | "release" | "refund";
 
 /** Which statuses each action may start from. Anything else is refused. */
