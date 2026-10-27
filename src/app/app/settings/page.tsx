@@ -7,6 +7,8 @@ import { connectInstagram, connectWhatsApp, disconnect, requestVerification, sav
 import { TrustBadge } from "@/components/TrustBadge";
 import { listBanks, paystackConfigured } from "@/lib/paystack";
 import { shipbubbleConfigured } from "@/lib/shipbubble";
+import { metaAdsConnected } from "@/lib/metaAds";
+import { connectMetaAds, disconnectMetaAds } from "@/app/actions/ads";
 import { logout } from "@/app/actions/auth";
 
 export const dynamic = "force-dynamic";
@@ -109,6 +111,30 @@ export default async function Settings() {
                   <label className="field">CAC number<input className="input" name="cacNumber" placeholder="RC 1234567 or BN 3456789" defaultValue={shop.cacNumber ?? ""} required /></label>
                   <label className="field">Registered business name<input className="input" name="registeredName" defaultValue={shop.registeredName ?? ""} required /></label>
                   <Submit>Request business verification</Submit>
+                </ActionForm>
+              )}
+            </div>
+          </section>
+
+          <section className="panel" id="ads">
+            <div className="panel-h">
+              <h2>Facebook and Instagram ads</h2>
+              {metaAdsConnected(shop) ? <span className="pill good">Connected</span> : <span className="pill gold">Test mode</span>}
+            </div>
+            <div className="panel-b">
+              {metaAdsConnected(shop) ? (
+                <form action={disconnectMetaAds}>
+                  <p className="small muted">Ad account act_{shop.metaAdAccountId} · Page {shop.metaPageId}{shop.metaIgUserId ? ` · Instagram ${shop.metaIgUserId}` : " · Facebook only"}</p>
+                  <button className="btn ghost">Disconnect</button>
+                </form>
+              ) : (
+                <ActionForm action={connectMetaAds}>
+                  <p className="small muted">Ads run on your own Meta ad account and Meta charges your card. Oja never holds your ad money. The account must bill in naira (NGN).</p>
+                  <label className="field">Ad account ID<input className="input" name="adAccountId" inputMode="numeric" placeholder="act_1234567890" required /></label>
+                  <label className="field">Facebook Page ID<input className="input" name="pageId" inputMode="numeric" required /></label>
+                  <label className="field">Instagram account ID (optional)<input className="input" name="igUserId" inputMode="numeric" /></label>
+                  <label className="field">Access token with ads_management<input className="input" name="token" type="password" autoComplete="off" required /></label>
+                  <Submit pendingText="Checking the ad account…">Connect ad account</Submit>
                 </ActionForm>
               )}
             </div>

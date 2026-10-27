@@ -12,8 +12,15 @@ import { startCheckout } from "@/app/actions/orders";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Pay safely" };
 
-export default async function Buy({ params }: { params: Promise<{ slug: string; productId: string }> }) {
+export default async function Buy({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string; productId: string }>;
+  searchParams: Promise<{ ad?: string }>;
+}) {
   const { slug, productId } = await params;
+  const { ad } = await searchParams;
   const shop = await db.shop.findUnique({ where: { slug } });
   const product = shop && (await db.product.findFirst({ where: { id: productId, shopId: shop.id, archived: false } }));
   if (!shop || !product) notFound();
@@ -47,6 +54,7 @@ export default async function Buy({ params }: { params: Promise<{ slug: string; 
           <ActionForm action={startCheckout}>
             <input type="hidden" name="slug" value={shop.slug} />
             <input type="hidden" name="productId" value={product.id} />
+            {ad && <input type="hidden" name="ad" value={ad.slice(0, 40)} />}
             <label className="field">How many<input className="input" name="quantity" type="number" min={1} max={Math.min(20, product.stock)} defaultValue={1} required /></label>
             <label className="field">Your name<input className="input" name="name" autoComplete="name" required /></label>
             <label className="field">Phone for the rider<input className="input" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0803 123 4567" required /></label>

@@ -78,3 +78,40 @@ export async function draftMessage(input: DraftInput, mode: "reply" | "follow_up
     return { error: "Couldn't reach the AI. Check your connection and try again." };
   }
 }
+
+const AD_SYSTEM = `You write short Facebook and Instagram ad captions for a Nigerian online shop. The shop owner reads and edits your caption before the ad runs.
+
+How to write:
+- 2 to 3 short lines, under 45 words. At most two emoji. No hashtags.
+- Lead with the product and why someone would want it. Include the price exactly as given.
+- Mention that payment is protected: the buyer pays through Oja SafePay and the money is held until the item arrives.
+- Use only the facts given. Never invent discounts, sizes, colours, delivery times or claims like "best" or "original".
+- Follow Meta's ad rules: no "you" statements about personal attributes (age, body, health, finances), no clickbait, no all-caps words.
+- Output only the caption text.`;
+
+export async function draftAdCaption(p: { shopName: string; product: string; priceKobo: number; stock: number; area: string }): Promise<{ text: string } | { error: string }> {
+  if (!aiConfigured()) return { error: "AI drafts are off. Add ANTHROPIC_API_KEY to turn them on." };
+  const client = new Anthropic();
+  try {
+    const res = await client.beta.messages.create({
+      model: MODEL,
+      max_tokens: 1000,
+      output_config: { effort: "low" },
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      system: AD_SYSTEM,
+      messages: [{
+        role: "user",
+        content: `Shop: ${p.shopName}\nProduct: ${p.product}\nPrice: ${naira(p.priceKobo)}\nIn stock: ${p.stock}\nShown to people in: ${p.area === "Nigeria" ? "all of Nigeria" : p.area}\n\nWrite the caption.`,
+      }],
+    });
+    if (res.stop_reason === "refusal") return { error: "The AI couldn't write this one. Write it yourself." };
+    const text = res.content.flatMap(b => (b.type === "text" ? [b.text] : [])).join("").trim();
+    return text ? { text } : { error: "The AI returned an empty caption. Try again." };
+  } catch (e) {
+    if (e instanceof Anthropic.RateLimitError) return { error: "Too many AI drafts right now. Try again in a minute." };
+    if (e instanceof Anthropic.AuthenticationError) return { error: "The AI key is wrong. Check ANTHROPIC_API_KEY." };
+    if (e instanceof Anthropic.APIError) return { error: `AI error (${e.status}). Try again.` };
+    return { error: "Couldn't reach the AI. Check your connection and try again." };
+  }
+}

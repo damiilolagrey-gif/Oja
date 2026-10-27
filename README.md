@@ -5,6 +5,7 @@ Mobile web app for Nigerian vendors who sell on Instagram and WhatsApp.
 - **SafePay checkout.** A "Pay safely" link for each item. Buyers pay through Paystack into escrow, follow the order on a tracking page, and the shop is paid only when they confirm delivery (or 48 hours after delivery with no complaint). Buyers can report a problem to freeze the money, and Oja staff settle disputes with a refund or a release.
 - **Delivery booking.** From a paid order, the shop picks a package size, sees prices from couriers (Kwik, GIG and others through Shipbubble) and books one. The buyer's tracking page links to the courier's tracker, and the order is marked delivered when the courier delivers. The fee comes out of that order's payout, so the shop pays nothing up front. Shops can still use their own rider.
 - **AI drafts.** In any chat, "Draft reply with AI" writes the next message from the conversation and your catalogue (prices, stock, Pay safely and notify links). When a buyer goes quiet, Oja flags the chat on Home while there is still time inside WhatsApp's 24-hour window and drafts a follow-up instead. A rep always reads and sends it.
+- **Facebook and Instagram ads.** "Promote a product" on the Ads tab: pick the item, Facebook and/or Instagram, a city or all of Nigeria, a daily budget and how many days. AI writes the ad text. The ad runs on the shop's own Meta ad account (Meta bills the shop's card, Oja never holds ad money) and links to that item's Pay safely page, so every SafePay sale is credited to the ad that brought it. The Ads tab shows spend, clicks, sales and sales per ₦1 spent for each ad, with pause and resume.
 - **Verified badges.** "Bank verified" appears once a payout account is confirmed with the bank. "Business verified" appears after Oja staff check the shop's CAC number on the public register. Buyers see the badge on the shop page and checkout.
 - **Waitlists** for sold-out items, filled from Instagram DMs, Instagram comments ("comment RESTOCK"), WhatsApp and the shop page.
 - **Restock alerts** sent on WhatsApp to the first wave of the waitlist (twice as many buyers as units, oldest first). A reply goes straight into the inbox, tagged "from alert", so recovered sales are counted.
@@ -70,6 +71,12 @@ Set `ANTHROPIC_API_KEY`. Drafts use Claude Opus 5.5 at low effort (short chat re
 Set `SHIPBUBBLE_API_KEY` and point the Shipbubble webhook at `APP_URL/api/webhooks/shipbubble`. Oja books every delivery on its own Shipbubble account, so keep that wallet funded; each fee is deducted from the shop's payout when the order is released. Shops save a pickup address in Settings, which is checked with Shipbubble. Couriers that cost as much as the shop's payout are hidden. If a courier cancels, the order goes back to "paid" with no fee so the shop can book again. Without a key, prices are examples and no rider is sent.
 
 If a booked order is later refunded, Oja has already paid the courier and that fee is not recovered from anyone. Settle it case by case.
+
+## Ads (Facebook and Instagram)
+
+Each shop connects its own ad account in Settings: the ad account ID, its Facebook Page ID, optionally its Instagram account ID, and an access token with `ads_management` and `pages_read_engagement` (a System User token from the shop's Business Manager lasts; a user token expires in about 60 days). The ad account must bill in NGN, because budgets are sent in kobo. Oja creates a Traffic campaign, ad set, creative and ad through the Marketing API (`META_ADS_API_VERSION`, default `v25.0`); if any step fails the campaign is deleted. The hourly cron pulls spend and clicks and ends ads past their end date.
+
+Before shops outside your own test accounts can connect, the Meta app needs Advanced Access to `ads_management` through App Review. Until a shop connects, ads are test ads: nothing goes to Meta and spend is the daily budget pro rata. TikTok and Google ads are next.
 
 ## Business verification
 
