@@ -29,7 +29,7 @@ export default async function Notify({
         {product.imageUrl ? <img src={product.imageUrl} alt="" className="thumb" style={{ width: 72, height: 72 }} /> : <div className="thumb" style={{ width: 72, height: 72 }}>{product.name[0]}</div>}
         <div className="stack" style={{ gap: 2 }}>
           <h1 style={{ fontSize: 22 }}>Get {product.name} when it&apos;s back</h1>
-          <span className="muted small">{naira(product.priceKobo)}{waiting > 2 ? ` · ${waiting} people waiting` : ""}</span>
+          <span className="muted small">{product.needsPrice ? "Ask for price" : naira(product.priceKobo)}{waiting > 2 ? ` · ${waiting} people waiting` : ""}</span>
         </div>
       </div>
       <section className="panel panel-b">

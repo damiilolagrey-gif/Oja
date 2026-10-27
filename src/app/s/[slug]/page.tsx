@@ -51,9 +51,12 @@ export default async function Storefront({ params, searchParams }: { params: Pro
                 {p.stock === 0 && <span className="so">SOLD OUT</span>}
               </div>
               <div className="info">
-                <div className="stack" style={{ gap: 2 }}><b>{p.name}</b><span className="num small">{naira(p.priceKobo)}</span></div>
+                <div className="stack" style={{ gap: 2 }}><b>{p.name}</b><span className="num small">{p.needsPrice ? "Ask for price" : naira(p.priceKobo)}</span></div>
                 {p.stock === 0 ? (
                   <Link className="btn primary block" href={`/s/${shop.slug}/notify/${p.id}${ref ? `?ref=${encodeURIComponent(ref)}` : ""}`}>Notify me</Link>
+                ) : p.needsPrice ? (
+                  // Made from an Instagram post with no price in the caption: buyers ask before paying.
+                  order && <a className="btn primary block" href={order}>Ask for price</a>
                 ) : (
                   <>
                     <Link className="btn primary block" href={`/s/${shop.slug}/buy/${p.id}`}>Pay safely</Link>

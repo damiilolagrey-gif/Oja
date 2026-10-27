@@ -29,7 +29,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       <Link href="/app/products" className="small">← Products</Link>
       <div className="stack" style={{ gap: 4 }}>
         <h1>{p.name}</h1>
-        <p className="muted">{naira(p.priceKobo)} · {p.stock ? `${p.stock} in stock` : "Sold out"} · {waiting} waiting</p>
+        <p className="muted">{p.needsPrice ? "Price needed: add it under Edit product" : naira(p.priceKobo)} · {p.stock ? `${p.stock} in stock` : "Sold out"} · {waiting} waiting</p>
       </div>
 
       <section className="panel">

@@ -16,7 +16,7 @@ export default async function Buy({ params }: { params: Promise<{ slug: string; 
   const { slug, productId } = await params;
   const shop = await db.shop.findUnique({ where: { slug } });
   const product = shop && (await db.product.findFirst({ where: { id: productId, shopId: shop.id, archived: false } }));
-  if (!shop || !product) notFound();
+  if (!shop || !product || product.needsPrice) notFound();
   const cfg = escrowConfig();
   const live = paystackConfigured();
 

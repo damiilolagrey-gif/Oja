@@ -21,6 +21,7 @@ export async function startCheckout(_: FormState, data: FormData): Promise<FormS
   const shop = await db.shop.findUnique({ where: { slug: str(data, "slug") } });
   const product = shop && (await db.product.findFirst({ where: { id: str(data, "productId"), shopId: shop.id, archived: false } }));
   if (!shop || !product) return { error: "This item is no longer available." };
+  if (product.needsPrice) return { error: "The shop hasn't set a price for this yet. Message them to ask." };
   const quantity = Math.max(1, Math.min(20, Number(data.get("quantity")) || 1));
   if (product.stock < quantity) return { error: product.stock ? `Only ${product.stock} left.` : "Sorry, this just sold out." };
   const buyerName = str(data, "name");

@@ -25,7 +25,13 @@ export async function saveProduct(_: FormState, data: FormData): Promise<FormSta
   if (!Number.isFinite(priceKobo) || priceKobo <= 0) return { error: "Enter the price in naira, like 28500" };
 
   const id = String(data.get("id") ?? "");
-  const fields = { name: parsed.data.name, priceKobo, imageUrl: parsed.data.imageUrl || null };
+  const fields = {
+    name: parsed.data.name,
+    priceKobo,
+    needsPrice: false,
+    // The form leaves the link out when the photo is stored by Oja; keep that photo.
+    ...(data.has("imageUrl") ? { imageUrl: parsed.data.imageUrl || null } : {}),
+  };
   if (id) {
     await db.product.update({ where: { id, shopId: user.shopId }, data: fields });
   } else {
