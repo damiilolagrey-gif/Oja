@@ -58,6 +58,20 @@ export const sendRestockTemplate = (
 export const sendDemandTemplate = (shop: ShopCreds, to: string, vars: [waiting: string, product: string]) =>
   sendTemplate(shop, to, process.env.WA_DEMAND_TEMPLATE || "waitlist_demand", vars);
 
+/**
+ * SafePay order updates (paid, dispatched, delivered) on an approved template, so they arrive even outside
+ * the 24-hour window. Body variables: {{1}} shop name, {{2}} the update, {{3}} the buyer's tracking link.
+ * Simulated until the shop connects WhatsApp and WA_ORDER_TEMPLATE is set.
+ */
+export async function sendOrderUpdateTemplate(
+  shop: ShopCreds,
+  to: string,
+  vars: [shopName: string, update: string, link: string],
+): Promise<SendResult> {
+  if (!process.env.WA_ORDER_TEMPLATE) return { status: "simulated", externalId: null };
+  return sendTemplate(shop, to, process.env.WA_ORDER_TEMPLATE, vars);
+}
+
 /** Free-form WhatsApp text. Meta only delivers it within 24 hours of the buyer's last message. */
 export async function sendWhatsAppText(shop: ShopCreds, to: string, text: string): Promise<SendResult> {
   if (!whatsappConnected(shop)) return { status: "simulated", externalId: null };

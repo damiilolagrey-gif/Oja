@@ -2,6 +2,10 @@
 
 Mobile web app for Nigerian vendors who sell on Instagram and WhatsApp.
 
+- **SafePay checkout.** A "Pay safely" link for each item. Buyers pay through Paystack into escrow, follow the order on a tracking page, and the shop is paid only when they confirm delivery (or 48 hours after delivery with no complaint). Buyers can report a problem to freeze the money, and Oja staff settle disputes with a refund or a release.
+- **Delivery booking.** From a paid order, the shop picks a package size, sees prices from couriers (Kwik, GIG and others through Shipbubble) and books one. The buyer's tracking page links to the courier's tracker, and the order is marked delivered when the courier delivers. The fee comes out of that order's payout, so the shop pays nothing up front. Shops can still use their own rider.
+- **AI drafts.** In any chat, "Draft reply with AI" writes the next message from the conversation and your catalogue (prices, stock, Pay safely and notify links). When a buyer goes quiet, Oja flags the chat on Home while there is still time inside WhatsApp's 24-hour window and drafts a follow-up instead. A rep always reads and sends it.
+- **Verified badges.** "Bank verified" appears once a payout account is confirmed with the bank. "Business verified" appears after Oja staff check the shop's CAC number on the public register. Buyers see the badge on the shop page and checkout.
 - **Waitlists** for sold-out items, filled from Instagram DMs, Instagram comments ("comment RESTOCK"), WhatsApp and the shop page.
 - **Restock alerts** sent on WhatsApp to the first wave of the waitlist (twice as many buyers as units, oldest first). A reply goes straight into the inbox, tagged "from alert", so recovered sales are counted.
 - **One inbox** for Instagram DMs and WhatsApp chats, with chats assigned to sales reps.
@@ -42,6 +46,41 @@ npm run dev
 - **WhatsApp.** On the Team page, the owner saves each staff member's own WhatsApp number. Messages from those numbers to the shop's WhatsApp are product commands and never reach the inbox. A photo captioned `Ankara two-piece 25000 3` adds a product with that photo. Text commands: `add <name> <price> [stock]`, `restock [name] <units>`, `sold out [name]`, `price [name] <price>`, `list`, `help`. Without a name, a command applies to the last product that staff member added, restocked or was told about.
 - **Instagram comments.** When a buyer comments RESTOCK on a post, the post becomes a product (name and price from the caption, photo from the post) and the buyer is sent that product's sign-up link. A caption with no price leaves the product marked *Price needed* until someone sets one.
 - **Demand messages.** When a waitlist reaches 1, 5, 10, 25, 50, 100, 250 or 500 buyers, the owner gets the demand template on WhatsApp. Replying with a number restocks that product and alerts the waitlist.
+
+## SafePay (escrow checkout)
+
+How money moves: the buyer pays item price + buyer protection fee into the platform's Paystack balance. When the order is released, the shop gets the item price minus the commission by Paystack transfer to the account it set up in Settings. A refund goes back to the buyer's card or account through Paystack.
+
+| Status | Who moves it | Next |
+| --- | --- | --- |
+| Paid | Paystack webhook (or straight away in test mode) | Shop marks dispatched |
+| Dispatched | Shop | Shop marks delivered, or buyer confirms |
+| Delivered | Shop | Buyer confirms, or auto-release after `SAFEPAY_RELEASE_HOURS` |
+| Problem reported | Buyer | Admin refunds or releases |
+| Completed | Buyer, cron or admin | Transfer to the shop |
+
+Set up:
+
+1. **Paystack.** Add `PAYSTACK_SECRET_KEY`. In the Paystack dashboard set the webhook URL to `APP_URL/api/webhooks/paystack`. Transfers must be enabled on the account, and OTP for transfers turned off (Settings > Preferences) so payouts can run from the API.
+2. **Cron.** Set `CRON_SECRET`. `vercel.json` calls `/api/cron/release` every hour to pay out delivered orders, retry failed payouts and cancel unpaid checkouts older than a day. Vercel's Hobby plan only runs crons once a day; use Pro, or call the URL from another scheduler with the same `Authorization: Bearer` header.
+3. **Admins.** Put Oja staff emails in `ADMIN_EMAILS`. They see a Disputes tab across all shops.
+4. **Order updates on WhatsApp (optional).** Create a *Utility* template with body variables `{{1}}` shop, `{{2}}` update, `{{3}}` link, e.g. *{{1}}: {{2}} Track your order: {{3}}*, and set `WA_ORDER_TEMPLATE`. Buyers are messaged when paid, dispatched and delivered.
+
+Before taking real money, get legal advice on holding buyer funds in Nigeria, and confirm with Paystack that your account may be used this way.
+
+## AI drafts
+
+Set `ANTHROPIC_API_KEY`. Drafts use Claude Opus 5.5 at low effort (short chat replies don't need more), with server-side refusal fallback turned on. Each draft sends the last 20 messages of that chat and up to 40 products. Without a key the button is hidden.
+
+## Delivery booking
+
+Set `SHIPBUBBLE_API_KEY` and point the Shipbubble webhook at `APP_URL/api/webhooks/shipbubble`. Oja books every delivery on its own Shipbubble account, so keep that wallet funded; each fee is deducted from the shop's payout when the order is released. Shops save a pickup address in Settings, which is checked with Shipbubble. Couriers that cost as much as the shop's payout are hidden. If a courier cancels, the order goes back to "paid" with no fee so the shop can book again. Without a key, prices are examples and no rider is sent.
+
+If a booked order is later refunded, Oja has already paid the courier and that fee is not recovered from anyone. Settle it case by case.
+
+## Business verification
+
+Shops request it in Settings with their RC or BN number and registered name. Admins (`ADMIN_EMAILS`) see requests in the Disputes tab, check them on the CAC public search and against the bank account name, then approve or reject with a reason.
 
 ## Rules the app enforces
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { naira } from "@/lib/format";
+import { TrustBadge } from "@/components/TrustBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function Storefront({ params, searchParams }: { params: Pro
         <div className="av">{shop.name[0]}</div>
         <div>
           <h1 style={{ fontSize: 22 }}>{shop.name}</h1>
+          <TrustBadge shop={shop} />
           {shop.igHandle && <a href={`https://instagram.com/${shop.igHandle}`} className="small">@{shop.igHandle}</a>}
         </div>
       </header>
@@ -52,15 +54,22 @@ export default async function Storefront({ params, searchParams }: { params: Pro
                 <div className="stack" style={{ gap: 2 }}><b>{p.name}</b><span className="num small">{p.needsPrice ? "Ask for price" : naira(p.priceKobo)}</span></div>
                 {p.stock === 0 ? (
                   <Link className="btn primary block" href={`/s/${shop.slug}/notify/${p.id}${ref ? `?ref=${encodeURIComponent(ref)}` : ""}`}>Notify me</Link>
-                ) : order ? (
-                  <a className="btn wa block" href={order}>Order</a>
-                ) : null}
+                ) : p.needsPrice ? (
+                  // Made from an Instagram post with no price in the caption: buyers ask before paying.
+                  order && <a className="btn primary block" href={order}>Ask for price</a>
+                ) : (
+                  <>
+                    <Link className="btn primary block" href={`/s/${shop.slug}/buy/${p.id}`}>Pay safely</Link>
+                    {order && <a className="small" href={order}>Ask the shop first</a>}
+                  </>
+                )}
               </div>
             </article>
           );
         })}
       </div>
       {shop.products.length === 0 && <p className="muted">No items yet.</p>}
+      <p className="small muted">Pay safely: your money is held by Oja SafePay and only released to {shop.name} after you confirm delivery.</p>
       <p className="foot">Sell on Instagram? <Link href="/">Get your own waitlist free with Oja</Link></p>
     </main>
   );
