@@ -95,6 +95,11 @@ model Shop {
   pickupCity        String?
   pickupPhone       String?
   pickupAddressCode Int?
+  // Facebook + Instagram ads, run on the shop's own ad account (the platform bills the shop's card).
+  metaAdAccountId   String?
+  metaPageId        String?
+  metaIgUserId      String?
+  metaAdsTokenEnc   String?
   createdAt         DateTime @default(now())
 
   users         User[]
@@ -102,6 +107,7 @@ model Shop {
   contacts      Contact[]
   conversations Conversation[]
   orders        Order[]
+  adCampaigns   AdCampaign[]
 }
 
 model User {
@@ -133,6 +139,7 @@ model Product {
   waitlist      WaitlistEntry[]
   conversations Conversation[]
   orders        Order[]
+  adCampaigns   AdCampaign[]
 
   @@index([shopId])
 }
@@ -256,8 +263,50 @@ model Order {
   shipmentStatus   String?   // booking | pending | confirmed | picked_up | in_transit | completed | cancelled
   trackingUrl      String?
   shippingKobo     Int       @default(0)
+  adCampaignId     String?   // the ad the buyer came from, for sales-per-ad
+  adCampaign       AdCampaign? @relation(fields: [adCampaignId], references: [id], onDelete: SetNull)
   createdAt      DateTime    @default(now())
 
   @@index([shopId, status])
   @@index([status, releaseAt])
+}
+
+enum AdStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+  FAILED
+}
+
+/** A product promotion. On Meta it is one campaign with one ad set and one ad; ids are kept to pause and sync. */
+model AdCampaign {
+  id             String   @id @default(cuid())
+  shopId         String
+  shop           Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName    String
+  platforms      String[] // facebook | instagram
+  area           String   // a city name, or "Nigeria" for nationwide
+  dailyKobo      Int
+  days           Int
+  message        String
+  status         AdStatus @default(ACTIVE)
+  simulated      Boolean  @default(false) // no ad account connected: nothing was created on Meta
+  metaCampaignId String?
+  metaAdSetId    String?
+  metaAdId       String?
+  spendKobo      Int      @default(0)
+  impressions    Int      @default(0)
+  clicks         Int      @default(0)
+  error          String?
+  startAt        DateTime @default(now())
+  endAt          DateTime
+  syncedAt       DateTime?
+  createdAt      DateTime @default(now())
+
+  orders Order[]
+
+  @@index([shopId, createdAt])
+  @@index([status, endAt])
 }

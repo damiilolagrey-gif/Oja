@@ -34,6 +34,9 @@ export async function startCheckout(_: FormState, data: FormData): Promise<FormS
   if (address.length < 8 || !city) return { error: "Add your full delivery address and city." };
 
   const totals = orderTotals(product.priceKobo, quantity, escrowConfig());
+  // Came from an Oja ad: credit the sale to it, but only if the ad is this shop's.
+  const adId = str(data, "ad");
+  const ad = adId ? await db.adCampaign.findFirst({ where: { id: adId, shopId: shop.id }, select: { id: true } }) : null;
   const order = await db.order.create({
     data: {
       shopId: shop.id,
@@ -47,6 +50,7 @@ export async function startCheckout(_: FormState, data: FormData): Promise<FormS
       city,
       itemName: product.name,
       quantity,
+      adCampaignId: ad?.id ?? null,
       ...totals,
     },
   });
