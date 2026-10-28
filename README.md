@@ -55,7 +55,7 @@ How money moves: the buyer pays item price + buyer protection fee into the platf
 Set up:
 
 1. **Paystack.** Add `PAYSTACK_SECRET_KEY`. In the Paystack dashboard set the webhook URL to `APP_URL/api/webhooks/paystack`. Transfers must be enabled on the account, and OTP for transfers turned off (Settings > Preferences) so payouts can run from the API.
-2. **Cron.** Set `CRON_SECRET`. `vercel.json` calls `/api/cron/release` every hour to pay out delivered orders, retry failed payouts and cancel unpaid checkouts older than a day. Vercel's Hobby plan only runs crons once a day; use Pro, or call the URL from another scheduler with the same `Authorization: Bearer` header.
+2. **Cron.** Set `CRON_SECRET`. `vercel.json` calls `/api/cron/release` once a day (06:00 UTC, 07:00 in Lagos) to pay out delivered orders, retry failed payouts and cancel unpaid checkouts older than a day. That is the most often Vercel's free Hobby plan allows, and a more frequent schedule makes Hobby deploys fail. On Pro, change it to `0 * * * *` for hourly payouts, or call the URL from another scheduler with the same `Authorization: Bearer` header.
 3. **Admins.** Put Oja staff emails in `ADMIN_EMAILS`. They see a Disputes tab across all shops.
 4. **Order updates on WhatsApp (optional).** Create a *Utility* template with body variables `{{1}}` shop, `{{2}}` update, `{{3}}` link, e.g. *{{1}}: {{2}} Track your order: {{3}}*, and set `WA_ORDER_TEMPLATE`. Buyers are messaged when paid, dispatched and delivered.
 
