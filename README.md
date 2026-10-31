@@ -4,6 +4,9 @@ Mobile web app for Nigerian vendors who sell on Instagram and WhatsApp.
 
 - **SafePay checkout.** A "Pay safely" link for each item. Buyers pay through Paystack into escrow, follow the order on a tracking page, and the shop is paid only when they confirm delivery (or 48 hours after delivery with no complaint). Buyers can report a problem to freeze the money, and Oja staff settle disputes with a refund or a release.
 - **Delivery booking.** From a paid order, the shop picks a package size, sees prices from couriers (Kwik, GIG and others through Shipbubble) and books one. The buyer's tracking page links to the courier's tracker, and the order is marked delivered when the courier delivers. The fee comes out of that order's payout, so the shop pays nothing up front. Shops can still use their own rider.
+- **AI sales agent.** Buyers can do everything inside WhatsApp or Instagram. The agent answers on its own from the live catalogue, sends product cards with tap buttons (Buy now, Notify me), collects the delivery address, creates the order and sends a "Pay now" link, adds buyers to restock lists, and answers "where is my order". It hands the chat to a rep for complaints, refunds, discounts, custom requests, or whenever a buyer asks for a person, with a one-line note on why. Reps can take over or hand back any chat. New shops start with it on; each shop can switch to drafts only, or off, in Settings.
+- **Order updates in the chat.** Payment received, dispatched and delivered messages go to the buyer and are written into the chat so reps see them too.
+- **Stock alerts.** When an item falls to its low-stock level (3 by default, set per product) or sells out, the owner gets a WhatsApp message with how many buyers are waiting and a restock link.
 - **AI drafts.** In any chat, "Draft reply with AI" writes the next message from the conversation and your catalogue (prices, stock, Pay safely and notify links). When a buyer goes quiet, Oja flags the chat on Home while there is still time inside WhatsApp's 24-hour window and drafts a follow-up instead. A rep always reads and sends it.
 - **Verified badges.** "Bank verified" appears once a payout account is confirmed with the bank. "Business verified" appears after Oja staff check the shop's CAC number on the public register. Buyers see the badge on the shop page and checkout.
 - **Waitlists** for sold-out items, filled from Instagram DMs, Instagram comments ("comment RESTOCK"), WhatsApp and the shop page.
@@ -60,6 +63,16 @@ Set up:
 4. **Order updates on WhatsApp (optional).** Create a *Utility* template with body variables `{{1}}` shop, `{{2}}` update, `{{3}}` link, e.g. *{{1}}: {{2}} Track your order: {{3}}*, and set `WA_ORDER_TEMPLATE`. Buyers are messaged when paid, dispatched and delivered.
 
 Before taking real money, get legal advice on holding buyer funds in Nigeria, and confirm with Paystack that your account may be used this way.
+
+## AI sales agent
+
+Set `ANTHROPIC_API_KEY`. In Settings > AI sales agent the owner picks *Answer buyers on its own* (default for new shops), *Only draft replies* (the default for shops created before this feature) or *Off*, writes notes the agent should know (delivery areas and fees, returns, opening hours), and gives the WhatsApp number for stock alerts.
+
+How it runs: the WhatsApp and Instagram webhooks store the buyer's message, return 200 to Meta, then run the agent in the background (`after()`), so a slow reply never makes Meta retry. The agent uses Claude Opus 5.5 at low effort with four tools (`show_product`, `create_checkout`, `join_waitlist`, `hand_over`), up to five steps per message. Every tool call is checked on the server: products must belong to the shop, quantities must be in stock, and an order needs a name, full address, city and a Nigerian phone number. If the AI fails or declines, the chat is handed to a rep. Messages it sends show as "AI agent" in the inbox. Messages asking for a person ("customer care", "talk to someone", "are you human") are handed over without calling the AI.
+
+Orders made in a chat link to the buyer's tracking page, which now has a **Pay now** button; the Paystack page is created on the first tap and reused after that. In test mode (no Paystack key) Pay now marks the order paid straight away.
+
+For stock alerts that arrive at any time, create a *Utility* template and set `WA_STOCK_TEMPLATE` (body variables `{{1}}` product, `{{2}}` units left, `{{3}}` customers waiting, `{{4}}` restock link). Without it, alerts are plain WhatsApp messages, which Meta only delivers if the owner wrote to the shop's number in the last 24 hours. Order updates fall back the same way: without `WA_ORDER_TEMPLATE`, an order made in a WhatsApp chat gets plain messages while the 24-hour window is open.
 
 ## AI drafts
 

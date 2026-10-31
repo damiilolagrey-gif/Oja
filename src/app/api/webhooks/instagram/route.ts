@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyMetaSignature } from "@/lib/meta-signature";
 import { getInstagramProfile, parseInstagramWebhook, sendInstagramPrivateReply } from "@/lib/meta";
 import { receiveMessage } from "@/lib/services/conversations";
+import { runAgent } from "@/lib/services/agent";
 
 const WAITLIST_KEYWORDS = /\b(restock|notify|waitlist)\b/i;
 
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     if (ev.kind === "dm") {
       const known = await db.contact.findUnique({ where: { shopId_igUserId: { shopId: shop.id, igUserId: ev.from } } });
       const profile = known ? {} : await getInstagramProfile(shop, ev.from);
-      await receiveMessage(shop, {
+      const convo = await receiveMessage(shop, {
         channel: "INSTAGRAM",
         igUserId: ev.from,
         igUsername: profile.username,
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
         externalId: ev.id,
         at: ev.at,
       });
+      if (convo) after(() => runAgent(shop, convo.id).then(() => undefined));
     } else if (WAITLIST_KEYWORDS.test(ev.text)) {
       // "Comment RESTOCK to get notified": answer privately with the shop's waitlist link.
       const link = `${process.env.APP_URL}/s/${shop.slug}?ref=ig-comment`;

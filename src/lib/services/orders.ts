@@ -1,14 +1,84 @@
 import "server-only";
-import type { Order, OrderStatus, Prisma, Shop } from "@prisma/client";
+import { randomBytes } from "node:crypto";
+import type { Order, OrderStatus, Prisma, Product, Shop } from "@prisma/client";
 import { db } from "../db";
-import { escrowConfig, fromStatuses, releaseDue, releaseTime, shopPayoutKobo } from "../escrow";
-import { paystackConfigured, refund as paystackRefund, transfer } from "../paystack";
-import { sendOrderUpdateTemplate } from "../meta";
+import { escrowConfig, fromStatuses, orderTotals, releaseDue, releaseTime, shopPayoutKobo } from "../escrow";
+import { initializeTransaction, paystackConfigured, refund as paystackRefund, transfer } from "../paystack";
+import { sendOrderUpdateTemplate, sendWhatsAppText } from "../meta";
+import { checkStock } from "./stock";
 
 export const trackingLink = (o: Pick<Order, "buyerToken">) => `${process.env.APP_URL ?? ""}/o/${o.buyerToken}`;
 
+const DAY_MS = 24 * 3600_000;
+
+/**
+ * Tells the buyer about their order on WhatsApp. Uses the approved order-update template when there is one
+ * (it arrives at any time); otherwise, for an order made in a WhatsApp chat that is still inside Meta's
+ * 24-hour window, a plain message. The update is also written into that chat so reps see what the buyer saw.
+ */
 async function notifyBuyer(shop: Shop, o: Order, update: string) {
-  await sendOrderUpdateTemplate(shop, o.buyerPhone, [shop.name, update, trackingLink(o)]);
+  const convo = o.conversationId
+    ? await db.conversation.findUnique({ where: { id: o.conversationId }, include: { contact: true } })
+    : null;
+  const text = `${update} Track your order: ${trackingLink(o)}`;
+  let r = await sendOrderUpdateTemplate(shop, o.buyerPhone, [shop.name, update, trackingLink(o)]);
+  if (r.status === "simulated" && convo?.channel === "WHATSAPP" && Date.now() - convo.lastBuyerAt.getTime() < DAY_MS) {
+    r = await sendWhatsAppText(shop, convo.contact.waPhone ?? o.buyerPhone, text);
+  }
+  if (convo) {
+    await db.message.create({
+      data: { conversationId: convo.id, direction: "OUT", author: "SYSTEM", text, externalId: r.externalId, deliveryStatus: r.status },
+    });
+  }
+}
+
+export type Buyer = { name: string; phone: string; email?: string | null; address: string; city: string };
+
+/** Creates an unpaid order for one product. The caller checks stock and validates the buyer's details. */
+export async function createOrder(shop: Shop, product: Product, quantity: number, buyer: Buyer, conversationId?: string) {
+  const totals = orderTotals(product.priceKobo, quantity, escrowConfig());
+  return db.order.create({
+    data: {
+      shopId: shop.id,
+      productId: product.id,
+      conversationId: conversationId ?? null,
+      reference: "oja_" + randomBytes(8).toString("hex"),
+      buyerToken: randomBytes(18).toString("base64url"),
+      buyerName: buyer.name,
+      buyerPhone: buyer.phone,
+      buyerEmail: buyer.email || null,
+      address: buyer.address,
+      city: buyer.city,
+      itemName: product.name,
+      quantity,
+      ...totals,
+    },
+  });
+}
+
+/**
+ * Where to send the buyer to pay. In test mode (no Paystack key) the order is marked paid straight away and
+ * the buyer goes to their tracking page. The Paystack page is created once and reused, because Paystack
+ * refuses a second checkout with the same reference.
+ */
+export async function startPayment(o: Order & { shop: Shop }): Promise<{ url: string } | { error: string }> {
+  if (o.status !== "PENDING") return { url: trackingLink(o) };
+  if (!paystackConfigured()) {
+    await markPaid(o.reference, o.totalKobo, true);
+    return { url: trackingLink(o) };
+  }
+  if (o.payUrl) return { url: o.payUrl };
+  const init = await initializeTransaction({
+    // Paystack needs an email; buyers who skip it get a per-order placeholder so receipts go nowhere.
+    email: o.buyerEmail || `${o.buyerPhone}@buyers.${new URL(process.env.APP_URL || "https://oja.app").hostname}`,
+    amountKobo: o.totalKobo,
+    reference: o.reference,
+    callbackUrl: trackingLink(o),
+    metadata: { shop: o.shop.name, item: o.itemName, quantity: o.quantity },
+  });
+  if (!init.ok) return { error: "We couldn't open the payment page. Please try again in a minute." };
+  await db.order.update({ where: { id: o.id }, data: { payUrl: init.data.authorization_url } });
+  return { url: init.data.authorization_url };
 }
 
 /**
@@ -29,6 +99,7 @@ export async function markPaid(reference: string, paidKobo: number, simulated = 
   if (!paid) return db.order.findUnique({ where: { reference } });
   if (paid.productId) {
     await db.product.updateMany({ where: { id: paid.productId, stock: { gte: paid.quantity } }, data: { stock: { decrement: paid.quantity } } });
+    await checkStock(paid.shop, paid.productId);
   }
   await notifyBuyer(paid.shop, paid, `Your payment for ${paid.itemName} is held safely. ${paid.shop.name} has been told to dispatch it.`);
   return paid;

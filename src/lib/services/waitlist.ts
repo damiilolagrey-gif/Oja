@@ -4,6 +4,7 @@ import { db } from "../db";
 import { pickWave } from "../waves";
 import { naira } from "../format";
 import { sendRestockTemplate } from "../meta";
+import { checkStock } from "./stock";
 
 export const consentText = (shopName: string) =>
   `${shopName} can message me on WhatsApp when this item is back in stock. I can reply STOP at any time.`;
@@ -30,6 +31,7 @@ export async function restock(shop: Shop, productId: string, units: number): Pro
     where: { id: productId, shopId: shop.id },
     data: { stock: { increment: units } },
   });
+  await checkStock(shop, productId); // clears the stock alert once it is back above the threshold
   const waiting = await db.waitlistEntry.findMany({
     where: { productId, status: "WAITING", contact: { waOptedOut: false, waPhone: { not: null } } },
     include: { contact: true },

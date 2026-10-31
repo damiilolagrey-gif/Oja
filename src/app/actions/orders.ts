@@ -1,14 +1,12 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { normalizeNigerianPhone } from "@/lib/phone";
 import { requireAdmin, requireUser } from "@/lib/session";
-import { can, dispatchOverdue, DISPUTE_REASONS, escrowConfig, orderTotals } from "@/lib/escrow";
-import { initializeTransaction, paystackConfigured } from "@/lib/paystack";
-import { markDelivered, markPaid, markShipped, refundOrder, release, reportProblem } from "@/lib/services/orders";
+import { can, dispatchOverdue, DISPUTE_REASONS, escrowConfig } from "@/lib/escrow";
+import { createOrder, markDelivered, markShipped, refundOrder, release, reportProblem, startPayment } from "@/lib/services/orders";
 import { book, quote } from "@/lib/services/delivery";
 import { PACKAGE_SIZES, type PackageSize } from "@/lib/shipbubble";
 import type { FormState } from "@/components/ActionForm";
@@ -33,42 +31,27 @@ export async function startCheckout(_: FormState, data: FormData): Promise<FormS
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "That email address doesn't look right." };
   if (address.length < 8 || !city) return { error: "Add your full delivery address and city." };
 
-  const totals = orderTotals(product.priceKobo, quantity, escrowConfig());
-  const order = await db.order.create({
-    data: {
-      shopId: shop.id,
-      productId: product.id,
-      reference: "oja_" + randomBytes(8).toString("hex"),
-      buyerToken: randomBytes(18).toString("base64url"),
-      buyerName,
-      buyerPhone,
-      buyerEmail: email || null,
-      address,
-      city,
-      itemName: product.name,
-      quantity,
-      ...totals,
-    },
-  });
-
-  if (!paystackConfigured()) {
-    // Test mode: no real money. The order behaves exactly as if it had been paid.
-    await markPaid(order.reference, order.totalKobo, true);
-    redirect(`/o/${order.buyerToken}`);
-  }
-  const init = await initializeTransaction({
-    // Paystack needs an email; buyers who skip it get a per-order placeholder so receipts go nowhere.
-    email: email || `${buyerPhone}@buyers.${new URL(process.env.APP_URL || "https://oja.app").hostname}`,
-    amountKobo: order.totalKobo,
-    reference: order.reference,
-    callbackUrl: `${process.env.APP_URL}/o/${order.buyerToken}`,
-    metadata: { shop: shop.name, item: product.name, quantity },
-  });
-  if (!init.ok) {
+  const order = await createOrder(shop, product, quantity, { name: buyerName, phone: buyerPhone, email, address, city });
+  const pay = await startPayment({ ...order, shop });
+  if ("error" in pay) {
     await db.order.update({ where: { id: order.id }, data: { status: "CANCELLED" } });
-    return { error: "We couldn't open the payment page. Please try again in a minute." };
+    return { error: pay.error };
   }
-  redirect(init.data.authorization_url);
+  redirect(pay.url);
+}
+
+/** "Pay now" on the tracking page, for orders made in a chat. */
+export async function payNow(_: FormState, data: FormData): Promise<FormState> {
+  const o = await db.order.findUnique({ where: { buyerToken: str(data, "token") }, include: { shop: true } });
+  if (!o) return { error: "Order not found." };
+  if (o.status !== "PENDING") return { error: "This order is already paid or closed." };
+  if (o.productId) {
+    const p = await db.product.findUnique({ where: { id: o.productId } });
+    if (!p || p.archived || p.stock < o.quantity) return { error: "Sorry, this item sold out before payment. Ask the shop in the chat to join the restock list." };
+  }
+  const pay = await startPayment(o);
+  if ("error" in pay) return { error: pay.error };
+  redirect(pay.url);
 }
 
 async function buyerOrder(data: FormData) {

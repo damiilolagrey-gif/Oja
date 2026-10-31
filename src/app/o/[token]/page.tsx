@@ -7,7 +7,7 @@ import { paystackConfigured, verifyTransaction } from "@/lib/paystack";
 import { markPaid } from "@/lib/services/orders";
 import { OrderSteps } from "@/components/OrderSteps";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { buyerCancel, buyerReport, confirmReceived } from "@/app/actions/orders";
+import { buyerCancel, buyerReport, confirmReceived, payNow } from "@/app/actions/orders";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Your order", robots: { index: false } };
@@ -40,7 +40,19 @@ export default async function Track({ params }: { params: Promise<{ token: strin
       {["PAID", "SHIPPED", "DELIVERED", "RELEASED", "DISPUTED"].includes(o.status) && <OrderSteps status={o.status} />}
 
       <section className="panel panel-b stack">
-        {o.status === "PENDING" && <p>We haven&apos;t received your payment yet. If you paid, this page updates within a few minutes.</p>}
+        {o.status === "PENDING" && (
+          <>
+            <p>
+              {o.quantity > 1 ? `${o.quantity} × ` : ""}{o.itemName}: {naira(o.amountKobo)} + buyer protection {naira(o.feeKobo)} = <b>{naira(o.totalKobo)}</b>.
+              Delivery to {o.address}, {o.city}. Your money is held until you confirm you got it.
+            </p>
+            <ActionForm action={payNow}>
+              <input type="hidden" name="token" value={o.buyerToken} />
+              <Submit pendingText="Opening payment…">Pay {naira(o.totalKobo)} now</Submit>
+            </ActionForm>
+            <p className="small muted">Card, bank transfer or USSD through Paystack. If you already paid, this page updates within a few minutes.</p>
+          </>
+        )}
         {o.status === "PAID" && <p>Your {naira(o.totalKobo)} is held safely. {o.shop.name} has been told to dispatch your order.</p>}
         {o.status === "SHIPPED" && <p>On its way with <b>{o.courier}</b>{o.trackingNote ? `: ${o.trackingNote}` : ""}.{o.trackingUrl && <> <a href={o.trackingUrl} target="_blank" rel="noreferrer">Track the rider</a>.</>} Check the item when it arrives before you confirm.</p>}
         {o.status === "DELIVERED" && o.releaseAt && (

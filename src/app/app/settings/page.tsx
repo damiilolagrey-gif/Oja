@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/session";
 import { displayPhone } from "@/lib/phone";
 import { instagramConnected, whatsappConnected } from "@/lib/meta";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { connectInstagram, connectWhatsApp, disconnect, requestVerification, savePayoutAccount, savePickupAddress, updateShop } from "@/app/actions/settings";
+import { connectInstagram, connectWhatsApp, disconnect, requestVerification, saveAgentSettings, savePayoutAccount, savePickupAddress, updateShop } from "@/app/actions/settings";
+import { aiConfigured } from "@/lib/ai";
 import { TrustBadge } from "@/components/TrustBadge";
 import { listBanks, paystackConfigured } from "@/lib/paystack";
 import { shipbubbleConfigured } from "@/lib/shipbubble";
@@ -70,6 +71,34 @@ export default async function Settings() {
                 <Submit pendingText="Checking with your bank…">{shop.payoutAccountNumber ? "Change account" : "Save payout account"}</Submit>
               </ActionForm>
               <p className="small muted">Your SafePay link for Instagram and TikTok bios: <span className="code">{base}/s/{shop.slug}</span></p>
+            </div>
+          </section>
+
+          <section className="panel" id="agent">
+            <div className="panel-h">
+              <h2>AI sales agent</h2>
+              <span className={`pill ${shop.agentMode === "AUTO" ? "good" : "plain"}`}>{shop.agentMode === "AUTO" ? "Answering buyers" : shop.agentMode === "DRAFT" ? "Drafts only" : "Off"}</span>
+            </div>
+            <div className="panel-b">
+              <ActionForm action={saveAgentSettings}>
+                <label className="field">How it works
+                  <select className="input" name="agentMode" defaultValue={shop.agentMode}>
+                    <option value="AUTO">Answer buyers on its own, hand over when unsure</option>
+                    <option value="DRAFT">Only draft replies for my team to send</option>
+                    <option value="OFF">Off</option>
+                  </select>
+                </label>
+                <label className="field">What should it know about your shop?
+                  <textarea className="input" name="agentNotes" rows={4} defaultValue={shop.agentNotes ?? ""}
+                    placeholder={"Delivery: Lagos ₦2,500, 1 to 2 days. Other states ₦4,500, 3 to 5 days.\nReturns: exchange within 3 days if unworn.\nWe reply 8am to 9pm."} />
+                </label>
+                <label className="field">Your WhatsApp for stock alerts
+                  <input className="input" name="alertPhone" type="tel" inputMode="tel" defaultValue={displayPhone(shop.alertPhone ?? "")} placeholder="0803 123 4567" />
+                </label>
+                <p className="small muted">It only quotes your live prices and stock, takes orders with a SafePay link, and adds buyers to restock lists. Complaints, discounts and custom requests go to your team. Try it with the pretend buyer in the Inbox.</p>
+                {!aiConfigured() && <p className="small error">Needs ANTHROPIC_API_KEY on the server before it can answer.</p>}
+                <Submit>Save</Submit>
+              </ActionForm>
             </div>
           </section>
 

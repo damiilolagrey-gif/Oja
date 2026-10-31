@@ -63,6 +63,14 @@ enum Author {
   BUYER
   REP
   SYSTEM
+  AGENT // the AI sales agent, replying on its own
+}
+
+/// How the AI sales agent behaves in a shop's chats.
+enum AgentMode {
+  OFF   // reps reply; no AI
+  DRAFT // reps reply; "Draft reply with AI" is available
+  AUTO  // the agent replies on its own and hands over to a rep when unsure
 }
 
 model Shop {
@@ -95,6 +103,10 @@ model Shop {
   pickupCity        String?
   pickupPhone       String?
   pickupAddressCode Int?
+  // AI sales agent and stock alerts
+  agentMode         AgentMode @default(AUTO) // new shops: the agent answers; shops from before 2.0 were set to DRAFT
+  agentNotes        String?  // extra facts for the agent: delivery areas, returns policy, opening hours
+  alertPhone        String?  // owner's WhatsApp, E.164 digits, for low/out-of-stock alerts
   createdAt         DateTime @default(now())
 
   users         User[]
@@ -127,6 +139,9 @@ model Product {
   priceKobo  Int
   stock      Int      @default(0)
   imageUrl   String?
+  description String?
+  lowStockAt Int      @default(3) // alert the owner when stock falls to this
+  stockAlert String?  // last alert sent: "low" | "out"; cleared on restock so the next drop alerts again
   archived   Boolean  @default(false)
   createdAt  DateTime @default(now())
 
@@ -190,8 +205,11 @@ model Conversation {
   lastBuyerAt   DateTime           @default(now())
   amountKobo    Int?
   closedAt      DateTime?
+  agentPaused   Boolean            @default(false) // a rep took over, or the agent handed over
+  handoverNote  String?            // why the agent handed over, shown at the top of the chat
 
   messages Message[]
+  orders   Order[]
 
   @@index([shopId, status])
   @@index([shopId, startedAt])
@@ -256,8 +274,13 @@ model Order {
   shipmentStatus   String?   // booking | pending | confirmed | picked_up | in_transit | completed | cancelled
   trackingUrl      String?
   shippingKobo     Int       @default(0)
+  // Set when the order was made inside a chat, so updates are logged in that chat
+  payUrl         String?     // Paystack checkout page, kept so the same link works if the buyer taps Pay again
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   createdAt      DateTime    @default(now())
 
   @@index([shopId, status])
   @@index([status, releaseAt])
+  @@index([conversationId])
 }

@@ -75,6 +75,90 @@ export async function sendOrderUpdateTemplate(
   });
 }
 
+/**
+ * Low/out-of-stock alert to the shop owner, on an approved Utility template so it arrives any time.
+ * Body variables: {{1}} product, {{2}} units left, {{3}} customers waiting, {{4}} restock link.
+ * Simulated until the shop connects WhatsApp and WA_STOCK_TEMPLATE is set.
+ */
+export async function sendStockAlertTemplate(
+  shop: ShopCreds,
+  to: string,
+  vars: [product: string, unitsLeft: string, waiting: string, link: string],
+): Promise<SendResult> {
+  if (!whatsappConnected(shop) || !process.env.WA_STOCK_TEMPLATE) return { status: "simulated", externalId: null };
+  return post(`https://graph.facebook.com/${version()}/${shop.waPhoneNumberId}/messages`, decrypt(shop.waTokenEnc!), {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name: process.env.WA_STOCK_TEMPLATE,
+      language: { code: process.env.WA_TEMPLATE_LANG || "en" },
+      components: [{ type: "body", parameters: vars.map(text => ({ type: "text", text })) }],
+    },
+  });
+}
+
+export type ChatButton = { id: string; title: string };
+
+/** WhatsApp limits: up to 3 reply buttons, titles up to 20 characters, body up to 1024. */
+export function whatsappButtonsPayload(to: string, body: string, buttons: ChatButton[], imageUrl?: string | null) {
+  return {
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      ...(imageUrl ? { header: { type: "image", image: { link: imageUrl } } } : {}),
+      body: { text: body.slice(0, 1024) },
+      action: {
+        buttons: buttons.slice(0, 3).map(b => ({ type: "reply", reply: { id: b.id.slice(0, 256), title: b.title.slice(0, 20) } })),
+      },
+    },
+  };
+}
+
+/** A product card with tap-to-reply buttons. Only delivers inside the 24-hour window, like plain text. */
+export async function sendWhatsAppButtons(shop: ShopCreds, to: string, body: string, buttons: ChatButton[], imageUrl?: string | null): Promise<SendResult> {
+  if (!whatsappConnected(shop)) return { status: "simulated", externalId: null };
+  return post(
+    `https://graph.facebook.com/${version()}/${shop.waPhoneNumberId}/messages`,
+    decrypt(shop.waTokenEnc!),
+    whatsappButtonsPayload(to, body, buttons, imageUrl),
+  );
+}
+
+/** Instagram generic template: image, title, subtitle and up to 3 postback buttons. */
+export function instagramCardPayload(igUserId: string, title: string, subtitle: string, buttons: ChatButton[], imageUrl?: string | null) {
+  return {
+    recipient: { id: igUserId },
+    message: {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "generic",
+          elements: [
+            {
+              title: title.slice(0, 80),
+              subtitle: subtitle.slice(0, 80),
+              ...(imageUrl ? { image_url: imageUrl } : {}),
+              buttons: buttons.slice(0, 3).map(b => ({ type: "postback", title: b.title.slice(0, 20), payload: b.id })),
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export async function sendInstagramCard(shop: ShopCreds, igUserId: string, title: string, subtitle: string, buttons: ChatButton[], imageUrl?: string | null): Promise<SendResult> {
+  if (!instagramConnected(shop)) return { status: "simulated", externalId: null };
+  return post(
+    `https://graph.instagram.com/${version()}/${shop.igAccountId}/messages`,
+    decrypt(shop.igTokenEnc!),
+    instagramCardPayload(igUserId, title, subtitle, buttons, imageUrl),
+  );
+}
+
 /** Free-form WhatsApp text. Meta only delivers it within 24 hours of the buyer's last message. */
 export async function sendWhatsAppText(shop: ShopCreds, to: string, text: string): Promise<SendResult> {
   if (!whatsappConnected(shop)) return { status: "simulated", externalId: null };
@@ -163,7 +247,12 @@ export type InboundInstagram =
 type IgEntry = {
   id: string;
   time?: number;
-  messaging?: { sender?: { id?: string }; timestamp?: number; message?: { mid?: string; text?: string; is_echo?: boolean } }[];
+  messaging?: {
+    sender?: { id?: string };
+    timestamp?: number;
+    message?: { mid?: string; text?: string; is_echo?: boolean };
+    postback?: { mid?: string; title?: string; payload?: string };
+  }[];
   changes?: { field?: string; value?: { id?: string; text?: string; from?: { id?: string; username?: string } } }[];
 };
 
@@ -172,6 +261,18 @@ export function parseInstagramWebhook(body: unknown): InboundInstagram[] {
   const entries = (body as { entry?: IgEntry[] })?.entry ?? [];
   for (const e of entries) {
     for (const m of e.messaging ?? []) {
+      if (m.postback && m.sender?.id && m.sender.id !== e.id) {
+        // A tap on a product card button arrives as a postback; treat it as the buyer typing the button's words.
+        out.push({
+          kind: "dm",
+          igAccountId: e.id,
+          from: m.sender.id,
+          text: m.postback.title ?? m.postback.payload ?? "[button]",
+          id: m.postback.mid ?? `${m.sender.id}-${m.timestamp}-postback`,
+          at: new Date(m.timestamp ?? Date.now()),
+        });
+        continue;
+      }
       if (!m.message || m.message.is_echo || !m.sender?.id || m.sender.id === e.id) continue;
       out.push({
         kind: "dm",
