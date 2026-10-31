@@ -136,3 +136,22 @@ export async function savePickupAddress(_: FormState, data: FormData): Promise<F
   revalidatePath("/app/settings");
   return r;
 }
+
+/** AI sales agent mode, what it should know about the shop, and where stock alerts go. */
+export async function saveAgentSettings(_: FormState, data: FormData): Promise<FormState> {
+  const owner = await requireOwner();
+  const mode = String(data.get("agentMode") ?? "");
+  if (mode !== "OFF" && mode !== "DRAFT" && mode !== "AUTO") return { error: "Pick how the AI agent should work" };
+  const rawPhone = String(data.get("alertPhone") ?? "").trim();
+  const alertPhone = rawPhone ? normalizeNigerianPhone(rawPhone) : null;
+  if (rawPhone && !alertPhone) return { error: "Enter your WhatsApp number for stock alerts like 0803 123 4567" };
+  const notes = String(data.get("agentNotes") ?? "").trim().slice(0, 2000) || null;
+  await db.shop.update({ where: { id: owner.shopId }, data: { agentMode: mode, agentNotes: notes, alertPhone } });
+  revalidatePath("/app", "layout");
+  return {
+    ok:
+      mode === "AUTO"
+        ? "Saved. The AI agent now answers new messages and hands over to your team when it's unsure."
+        : "Saved.",
+  };
+}

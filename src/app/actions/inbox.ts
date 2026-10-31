@@ -8,6 +8,8 @@ import { normalizeNigerianPhone } from "@/lib/phone";
 import { requireUser } from "@/lib/session";
 import { markLost, markWon, receiveMessage, sendReply } from "@/lib/services/conversations";
 import { draftMessage } from "@/lib/ai";
+import { handOver, runAgent } from "@/lib/services/agent";
+import { checkStock } from "@/lib/services/stock";
 import type { FormState } from "@/components/ActionForm";
 
 export async function reply(_: FormState, data: FormData): Promise<FormState> {
@@ -27,6 +29,8 @@ export async function closeSale(_: FormState, data: FormData): Promise<FormState
   const amount = toKobo(String(data.get("amount") ?? ""));
   if (!Number.isFinite(amount) || amount <= 0) return { error: "Enter the amount paid in naira" };
   await markWon(user.shopId, id, amount);
+  const c = await db.conversation.findFirst({ where: { id, shopId: user.shopId }, select: { productId: true } });
+  if (c?.productId) await checkStock(user.shop, c.productId);
   revalidatePath("/app", "layout");
   return { ok: "Sale recorded" };
 }
@@ -63,6 +67,8 @@ export async function simulateBuyerMessage(_: FormState, data: FormData): Promis
   } else {
     convo = await receiveMessage(user.shop, { channel, igUserId: `test-${name.toLowerCase().replace(/\W+/g, "-")}`, name, text });
   }
+  // Lets the owner try the AI agent before going live: it answers the pretend buyer straight away.
+  if (convo) await runAgent(user.shop, convo.id);
   revalidatePath("/app", "layout");
   if (convo) redirect(`/app/inbox/${convo.id}`);
   return undefined;
@@ -93,8 +99,27 @@ export async function draftWithAi(conversationId: string, mode: "reply" | "follo
         buyLink: `${base}/s/${shop.slug}/buy/${p.id}`,
         notifyLink: `${base}/s/${shop.slug}/notify/${p.id}?ref=${c.channel === "INSTAGRAM" ? "ig-dm" : "wa"}`,
       })),
-      messages: [...c.messages].reverse().map(m => ({ from: m.author === "BUYER" ? "buyer" : m.author === "REP" ? "shop" : "system", text: m.text, at: m.createdAt })),
+      messages: [...c.messages].reverse().map(m => ({ from: m.author === "BUYER" ? "buyer" : m.author === "SYSTEM" ? "system" : "shop", text: m.text, at: m.createdAt })),
     },
     mode,
   );
+}
+
+/** A rep takes the chat from the AI agent: the agent stays quiet in this chat until it is handed back. */
+export async function takeOver(data: FormData) {
+  const user = await requireUser();
+  const id = String(data.get("conversationId"));
+  const c = await db.conversation.findFirst({ where: { id, shopId: user.shopId } });
+  if (!c) return;
+  await handOver(c.id, `${user.name} took over`);
+  await db.conversation.update({ where: { id: c.id }, data: { repId: c.repId ?? user.id } });
+  revalidatePath(`/app/inbox/${id}`);
+}
+
+/** Gives the chat back to the AI agent, which answers the buyer's next message. */
+export async function handBack(data: FormData) {
+  const user = await requireUser();
+  const id = String(data.get("conversationId"));
+  await db.conversation.updateMany({ where: { id, shopId: user.shopId }, data: { agentPaused: false, handoverNote: null } });
+  revalidatePath(`/app/inbox/${id}`);
 }

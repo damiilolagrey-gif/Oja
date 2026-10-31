@@ -8,6 +8,7 @@ import { naira, toKobo } from "@/lib/format";
 import { normalizeNigerianPhone } from "@/lib/phone";
 import { requireUser } from "@/lib/session";
 import { joinWaitlist, restock } from "@/lib/services/waitlist";
+import { checkStock } from "@/lib/services/stock";
 import type { FormState } from "@/components/ActionForm";
 
 const productSchema = z.object({
@@ -15,6 +16,8 @@ const productSchema = z.object({
   price: z.string().trim().min(1, "Add a price"),
   stock: z.coerce.number().int().min(0, "Stock can't be negative").default(0),
   imageUrl: z.string().trim().url("Image link must be a full https:// link").optional().or(z.literal("")),
+  description: z.string().trim().max(1000, "Keep the details under 1000 characters").optional(),
+  lowStockAt: z.coerce.number().int().min(0).max(1000).default(3),
 });
 
 export async function saveProduct(_: FormState, data: FormData): Promise<FormState> {
@@ -25,12 +28,17 @@ export async function saveProduct(_: FormState, data: FormData): Promise<FormSta
   if (!Number.isFinite(priceKobo) || priceKobo <= 0) return { error: "Enter the price in naira, like 28500" };
 
   const id = String(data.get("id") ?? "");
-  const fields = { name: parsed.data.name, priceKobo, imageUrl: parsed.data.imageUrl || null };
-  if (id) {
-    await db.product.update({ where: { id, shopId: user.shopId }, data: fields });
-  } else {
-    await db.product.create({ data: { ...fields, stock: parsed.data.stock, shopId: user.shopId } });
-  }
+  const fields = {
+    name: parsed.data.name,
+    priceKobo,
+    imageUrl: parsed.data.imageUrl || null,
+    description: parsed.data.description || null,
+    lowStockAt: parsed.data.lowStockAt,
+  };
+  const saved = id
+    ? await db.product.update({ where: { id, shopId: user.shopId }, data: fields })
+    : await db.product.create({ data: { ...fields, stock: parsed.data.stock, shopId: user.shopId } });
+  await checkStock(user.shop, saved.id); // a new threshold can put it in (or out of) the low-stock zone
   revalidatePath("/app/products");
   return { ok: id ? "Saved" : `Added ${parsed.data.name}` };
 }

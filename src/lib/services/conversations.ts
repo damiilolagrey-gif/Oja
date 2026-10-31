@@ -126,9 +126,11 @@ export async function sendReply(shop: Shop, conversationId: string, repId: strin
   await db.message.create({
     data: { conversationId, direction: "OUT", author: "REP", repId, text, externalId: r.externalId, deliveryStatus: r.status },
   });
-  if (!c.firstReplyAt && r.status !== "failed") {
-    await db.conversation.update({ where: { id: conversationId }, data: { firstReplyAt: now } });
-  }
+  // A rep writing in the chat takes it over from the AI agent until they hand it back.
+  await db.conversation.update({
+    where: { id: conversationId },
+    data: { agentPaused: true, ...(!c.firstReplyAt && r.status !== "failed" ? { firstReplyAt: now } : {}) },
+  });
   return r;
 }
 

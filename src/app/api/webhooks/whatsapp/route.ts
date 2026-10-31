@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyMetaSignature } from "@/lib/meta-signature";
 import { parseWhatsAppWebhook } from "@/lib/meta";
 import { receiveMessage } from "@/lib/services/conversations";
+import { runAgent } from "@/lib/services/agent";
 
 /** Meta calls this once to confirm the webhook URL. */
 export async function GET(req: Request) {
@@ -23,7 +24,9 @@ export async function POST(req: Request) {
   for (const m of messages) {
     const shop = await db.shop.findUnique({ where: { waPhoneNumberId: m.phoneNumberId } });
     if (!shop) continue;
-    await receiveMessage(shop, { channel: "WHATSAPP", waPhone: m.from, name: m.name, text: m.text, externalId: m.id, at: m.at });
+    const convo = await receiveMessage(shop, { channel: "WHATSAPP", waPhone: m.from, name: m.name, text: m.text, externalId: m.id, at: m.at });
+    // Answer after Meta gets its 200, so a slow AI reply never makes Meta retry the webhook.
+    if (convo) after(() => runAgent(shop, convo.id).then(() => undefined));
   }
   for (const s of statuses) {
     await db.message.updateMany({ where: { externalId: s.id }, data: { deliveryStatus: s.status } });

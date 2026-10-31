@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/session";
 import { ago, naira, timeOfDay } from "@/lib/format";
 import { waitingMinutes } from "@/lib/metrics";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { closeLost, closeSale, reply, updateConversation } from "@/app/actions/inbox";
+import { closeLost, closeSale, handBack, reply, takeOver, updateConversation } from "@/app/actions/inbox";
 import { AutoSubmitSelect } from "./AutoSubmitSelect";
 import { QuickReplies } from "./QuickReplies";
 import { AiDraft } from "./AiDraft";
@@ -51,6 +51,21 @@ export default async function Chat({ params }: { params: Promise<{ id: string }>
           <AutoSubmitSelect action={updateConversation} conversationId={c.id} name="productId" value={c.productId ?? ""} label="Product"
             options={[{ value: "", label: "No product" }, ...products.map(p => ({ value: p.id, label: p.name }))]} />
         </div>
+        {shop.agentMode === "AUTO" && aiConfigured() && c.status === "OPEN" && (
+          c.agentPaused ? (
+            <form action={handBack} className={`notice ${c.handoverNote ? "bad" : ""} row between`}>
+              <input type="hidden" name="conversationId" value={c.id} />
+              <span className="small">{c.handoverNote ? <><b>Needs a person:</b> {c.handoverNote}</> : "You're handling this chat. The AI agent is paused here."}</span>
+              <button className="btn ghost">Hand back to AI</button>
+            </form>
+          ) : (
+            <form action={takeOver} className="notice row between">
+              <input type="hidden" name="conversationId" value={c.id} />
+              <span className="small">The AI agent is answering this chat.</span>
+              <button className="btn ghost">Take over</button>
+            </form>
+          )
+        )}
         {w != null && <span className={`pill ${w > shop.missLimitMinutes ? "bad" : "gold"}`} style={{ justifySelf: "start" }}>Waiting {ago(w)} for a first reply</span>}
       </div>
 
@@ -59,7 +74,7 @@ export default async function Chat({ params }: { params: Promise<{ id: string }>
           <div key={m.id} className={`msg ${m.author === "SYSTEM" ? "SYSTEM" : m.direction}`}>
             {m.text}
             <small>
-              {m.author === "REP" ? m.rep?.name.split(" ")[0] : m.author === "SYSTEM" ? "Oja" : c.contact.name} · {timeOfDay(m.createdAt)}
+              {m.author === "REP" ? m.rep?.name.split(" ")[0] : m.author === "AGENT" ? "AI agent" : m.author === "SYSTEM" ? "Oja" : c.contact.name} · {timeOfDay(m.createdAt)}
               {m.deliveryStatus === "simulated" && " · simulated"}
               {m.deliveryStatus === "failed" && " · not delivered"}
             </small>
