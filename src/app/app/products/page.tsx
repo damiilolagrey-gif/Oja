@@ -4,12 +4,14 @@ import { requireUser } from "@/lib/session";
 import { naira } from "@/lib/format";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { restockProduct, saveProduct } from "@/app/actions/products";
+import { can } from "@/lib/permissions";
 import { ProductFields } from "./ProductFields";
 
 export const dynamic = "force-dynamic";
 
 export default async function Products() {
   const user = await requireUser();
+  const canEdit = can(user.role, "products.edit");
   const products = await db.product.findMany({
     where: { shopId: user.shopId, archived: false },
     orderBy: [{ stock: "asc" }, { createdAt: "desc" }],
@@ -26,7 +28,7 @@ export default async function Products() {
         </p>
       </div>
 
-      <details className="panel">
+      {canEdit && <details className="panel">
         <summary className="panel-h"><h2>Add a product</h2><span className="btn primary">Add</span></summary>
         <div className="panel-b">
           <ActionForm action={saveProduct}>
@@ -34,7 +36,7 @@ export default async function Products() {
             <Submit>Add product</Submit>
           </ActionForm>
         </div>
-      </details>
+      </details>}
 
       <section className="panel list">
         {products.length === 0 && <p className="item muted">No products yet. Add the items you post on Instagram.</p>}
@@ -48,7 +50,7 @@ export default async function Products() {
                 {p.stock ? <span className="pill plain num">{p.stock} in stock</span> : <span className="pill bad">Sold out</span>}
                 {p._count.waitlist > 0 && <span className="pill gold">{p._count.waitlist} waiting</span>}
               </div>
-              <ActionForm action={restockProduct} className="stack">
+              {canEdit && <ActionForm action={restockProduct} className="stack">
                 <input type="hidden" name="productId" value={p.id} />
                 <div className="restock">
                   <input className="input" name="units" type="number" inputMode="numeric" min={1} defaultValue={p.stock ? "" : 3} placeholder="Units" aria-label={`Units of ${p.name} arriving`} required />
@@ -56,7 +58,7 @@ export default async function Products() {
                     {p._count.waitlist ? "Restock & alert" : "Add stock"}
                   </Submit>
                 </div>
-              </ActionForm>
+              </ActionForm>}
             </div>
           </div>
         ))}

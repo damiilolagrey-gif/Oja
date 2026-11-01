@@ -12,6 +12,7 @@ Mobile web app for Nigerian vendors who sell on Instagram and WhatsApp.
 - **Waitlists** for sold-out items, filled from Instagram DMs, Instagram comments ("comment RESTOCK"), WhatsApp and the shop page.
 - **Restock alerts** sent on WhatsApp to the first wave of the waitlist (twice as many buyers as units, oldest first). A reply goes straight into the inbox, tagged "from alert", so recovered sales are counted.
 - **One inbox** for Instagram DMs and WhatsApp chats, with chats assigned to sales reps.
+- **Roles and activity log.** Owners add staff as *Sales rep* (their chats, orders and restock lists; can't change prices or stock or reassign chats) or *Manager* (chats, orders, products and stock, everyone's scorecard and activity; no payouts, settings or team changes). Every reply, sale, chat assignment, AI take-over, price or stock change, restock, order step, settings change and login is written to an activity log with the person, time and device. Owners and managers see it under Team, filtered by person and period.
 - **Rep scorecard**: first reply time, missed chats (owner sets the limit), close rate and sales per rep.
 
 Until a shop connects WhatsApp and Instagram in Settings, sends are recorded as *simulated* and the inbox has a "pretend buyer" form, so the whole flow can be tried before Meta approves anything.

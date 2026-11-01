@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { slugify } from "@/lib/format";
-import { endSession, startSession } from "@/lib/session";
+import { currentUser, endSession, startSession } from "@/lib/session";
+import { logActivity } from "@/lib/services/activity";
 import type { FormState } from "@/components/ActionForm";
 
 const signupSchema = z.object({
@@ -51,10 +52,13 @@ export async function login(_: FormState, data: FormData): Promise<FormState> {
     return { error: "That email and password don't match." };
   }
   await startSession(user.id);
+  await logActivity(user, "auth.login", "Logged in");
   redirect("/app");
 }
 
 export async function logout() {
+  const user = await currentUser();
+  if (user) await logActivity(user, "auth.logout", "Logged out");
   await endSession();
   redirect("/login");
 }

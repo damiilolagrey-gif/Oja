@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { isAdminEmail, requireUser } from "@/lib/session";
 import { TabBar } from "@/components/TabBar";
+import { ROLE_LABEL } from "@/lib/permissions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -16,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="shopname">
           <b>{user.shop.name}</b>
           <br />
-          {user.name} · {user.role === "OWNER" ? "Owner" : "Sales rep"}
+          {user.name} · {ROLE_LABEL[user.role]}
         </div>
       </header>
       <TabBar waiting={waiting} toShip={toShip} admin={isAdminEmail(user.email)} />
