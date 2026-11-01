@@ -5,6 +5,7 @@ import { naira } from "@/lib/format";
 import { aiConfigured } from "@/lib/ai";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { saveBrand } from "@/app/actions/studio";
+import { StudioNav } from "./StudioNav";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function Studio() {
 
   return (
     <>
+      <StudioNav on="studio" />
       <div className="stack" style={{ gap: 4 }}>
         <h1>Creative studio</h1>
         <p className="muted">Pick a product to get ad captions for Instagram, Facebook, TikTok and Google, and ad images in every size. Every ad sends buyers to your WhatsApp.</p>

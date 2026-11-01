@@ -3,7 +3,7 @@ import { minutesBetween } from "./format";
 export type ConvForMetrics = {
   repId: string | null;
   status: "OPEN" | "WON" | "LOST";
-  source: "ORGANIC" | "ALERT";
+  source: "ORGANIC" | "ALERT" | "AD";
   startedAt: Date;
   firstReplyAt: Date | null;
   amountKobo: number | null;

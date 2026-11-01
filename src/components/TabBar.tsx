@@ -19,7 +19,7 @@ const tabs = [
   { href: "/app/products", label: "Products", icon: "products" },
   { href: "/app/orders", label: "Orders", icon: "orders" },
   { href: "/app/inbox", label: "Inbox", icon: "inbox" },
-  { href: "/app/studio", label: "Studio", icon: "studio" },
+  { href: "/app/studio", label: "Ads", icon: "studio" },
   { href: "/app/team", label: "Team", icon: "team" },
   { href: "/app/settings", label: "Settings", icon: "settings" },
 ];
@@ -31,7 +31,7 @@ export function TabBar({ waiting, toShip, admin, studio }: { waiting: number; to
   return (
     <nav className="tabbar" aria-label="Main" style={{ "--tabs": shown.length } as React.CSSProperties}>
       {shown.map(t => {
-        const active = t.href === "/app" ? path === "/app" : path.startsWith(t.href);
+        const active = t.href === "/app" ? path === "/app" : path.startsWith(t.href) || (t.icon === "studio" && path.startsWith("/app/ads"));
         return (
           <Link key={t.href} href={t.href} aria-current={active ? "page" : undefined}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">

@@ -3,6 +3,7 @@ import type { Channel, Shop } from "@prisma/client";
 import { db } from "../db";
 import { pickRep } from "../assign";
 import { sendInstagramText, sendWhatsAppText, type SendResult } from "../meta";
+import { parseRef } from "../ads";
 
 const ALERT_REPLY_WINDOW_MS = 72 * 60 * 60 * 1000;
 const STOP_WORDS = new Set(["STOP", "UNSUBSCRIBE", "STOP ALERTS"]);
@@ -62,14 +63,18 @@ export async function receiveMessage(shop: Shop, msg: Inbound) {
             include: { product: true },
           })
         : null;
+    // A first message from an ad's link carries the campaign code, e.g. "(ref K7Q2MX)".
+    const ref = alerted ? null : parseRef(msg.text);
+    const campaign = ref ? await db.campaign.findFirst({ where: { code: ref, shopId: shop.id }, select: { id: true, productId: true } }) : null;
     convo = await db.conversation.create({
       data: {
         shopId: shop.id,
         contactId: contact.id,
         channel: msg.channel,
         repId: await chooseRep(shop.id),
-        productId: alerted?.productId,
-        source: alerted ? "ALERT" : "ORGANIC",
+        productId: alerted?.productId ?? campaign?.productId,
+        campaignId: campaign?.id,
+        source: alerted ? "ALERT" : campaign ? "AD" : "ORGANIC",
         startedAt: at,
         lastBuyerAt: at,
       },

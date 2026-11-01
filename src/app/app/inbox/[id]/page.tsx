@@ -20,7 +20,7 @@ export default async function Chat({ params }: { params: Promise<{ id: string }>
   const user = await requireUser();
   const c = await db.conversation.findFirst({
     where: { id, shopId: user.shopId },
-    include: { contact: true, product: true, messages: { orderBy: { createdAt: "asc" }, include: { rep: true } } },
+    include: { contact: true, product: true, campaign: { select: { id: true, name: true } }, messages: { orderBy: { createdAt: "asc" }, include: { rep: true } } },
   });
   if (!c) notFound();
   const [reps, products] = await Promise.all([
@@ -52,6 +52,12 @@ export default async function Chat({ params }: { params: Promise<{ id: string }>
           <AutoSubmitSelect action={updateConversation} conversationId={c.id} name="productId" value={c.productId ?? ""} label="Product"
             options={[{ value: "", label: "No product" }, ...products.map(p => ({ value: p.id, label: p.name }))]} />
         </div>
+        {c.campaign && (
+          <p className="small muted">
+            Came from the ad{" "}
+            {can(user.role, "ads") ? <Link href={`/app/ads/${c.campaign.id}`}>{c.campaign.name}</Link> : <b>{c.campaign.name}</b>}
+          </p>
+        )}
         {shop.agentMode === "AUTO" && aiConfigured() && c.status === "OPEN" && (
           c.agentPaused ? (
             <form action={handBack} className={`notice ${c.handoverNote ? "bad" : ""} row between`}>

@@ -112,7 +112,10 @@ export default async function StudioProduct({ params }: { params: Promise<{ prod
                   <Submit className="btn">Save changes</Submit>
                 </ActionForm>
               </details>
-              <form action={deleteAd}><input type="hidden" name="id" value={a.id} /><button className="btn ghost small">Delete this set</button></form>
+              <div className="row between">
+                <Link className="btn small primary" href={`/app/ads/new?product=${p.id}&creative=${a.id}`}>Run as a campaign</Link>
+                <form action={deleteAd}><input type="hidden" name="id" value={a.id} /><button className="btn ghost small">Delete this set</button></form>
+              </div>
             </article>
           ))}
         </div>
