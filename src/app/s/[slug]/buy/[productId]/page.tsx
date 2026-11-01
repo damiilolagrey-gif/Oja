@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Pay safely" };
 export default async function Buy({ params }: { params: Promise<{ slug: string; productId: string }> }) {
   const { slug, productId } = await params;
   const shop = await db.shop.findUnique({ where: { slug } });
-  const product = shop && (await db.product.findFirst({ where: { id: productId, shopId: shop.id, archived: false } }));
+  const product = shop && (await db.product.findFirst({ where: { id: productId, shopId: shop.id, archived: false }, include: { variants: { where: { archived: false }, orderBy: { createdAt: "asc" } } } }));
   if (!shop || !product) notFound();
   const cfg = escrowConfig();
   const live = paystackConfigured();
@@ -47,6 +47,18 @@ export default async function Buy({ params }: { params: Promise<{ slug: string; 
           <ActionForm action={startCheckout}>
             <input type="hidden" name="slug" value={shop.slug} />
             <input type="hidden" name="productId" value={product.id} />
+            {product.variants.length > 0 && (
+              <label className="field">Choose an option
+                <select className="input" name="variantId" required defaultValue={product.variants.find(v => v.stock > 0)?.id}>
+                  {product.variants.map(v => (
+                    <option key={v.id} value={v.id} disabled={v.stock <= 0}>
+                      {v.label}{v.priceKobo !== null && v.priceKobo !== product.priceKobo ? ` · ${naira(v.priceKobo)}` : ""}{v.stock <= 0 ? " · sold out" : v.stock <= 2 ? ` · ${v.stock} left` : ""}
+                    </option>
+                  ))}
+                </select>
+                {product.variants.some(v => v.stock <= 0) && <span className="hint"><Link href={`/s/${shop.slug}/notify/${product.id}`}>Your option sold out? Get a WhatsApp message when it&apos;s back</Link></span>}
+              </label>
+            )}
             <label className="field">How many<input className="input" name="quantity" type="number" min={1} max={Math.min(20, product.stock)} defaultValue={1} required /></label>
             <label className="field">Your name<input className="input" name="name" autoComplete="name" required /></label>
             <label className="field">Phone for the rider<input className="input" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0803 123 4567" required /></label>

@@ -59,7 +59,7 @@ export function mapHeader(header: string[]): { columns: Partial<Record<Field, nu
   return { columns, missing: null };
 }
 
-export type Existing = { id: string; name: string; priceKobo: number; stock: number; imageUrl: string | null; description: string | null; lowStockAt: number; waiting: number };
+export type Existing = { id: string; name: string; priceKobo: number; stock: number; imageUrl: string | null; description: string | null; lowStockAt: number; waiting: number; hasOptions?: boolean };
 
 export type PlannedRow =
   | { line: number; kind: "add"; name: string; priceKobo: number; stock: number; imageUrl: string | null; description: string | null; lowStockAt: number }
@@ -131,6 +131,9 @@ export function planImport(text: string, existing: Existing[]): Plan {
       return;
     }
     // Blank cells leave the product as it is, so a sheet with only Name and Stock just updates stock.
+    if (current.hasOptions && stock !== null && stock !== current.stock) {
+      return fail(`"${current.name}" has options like sizes or colours. Change its stock per option on the product page.`);
+    }
     const changes: Extract<PlannedRow, { kind: "update" }>["changes"] = {};
     if (priceKobo !== null && priceKobo !== current.priceKobo) changes.priceKobo = priceKobo;
     if (imageRaw && imageRaw !== current.imageUrl) changes.imageUrl = imageRaw;

@@ -9,7 +9,7 @@ const good = { product_id: "p1", quantity: 2, name: "Ada Obi", address: "12 Admi
 describe("checkCheckout", () => {
   it("accepts a complete order and uses the chat's WhatsApp number", () => {
     expect(checkCheckout(good, product, "2348031234567")).toEqual({
-      ok: true, quantity: 2, name: "Ada Obi", address: good.address, city: "Lagos", phone: "2348031234567",
+      ok: true, quantity: 2, name: "Ada Obi", address: good.address, city: "Lagos", phone: "2348031234567", variant: null,
     });
   });
   it("prefers a phone the buyer gave, normalised", () => {

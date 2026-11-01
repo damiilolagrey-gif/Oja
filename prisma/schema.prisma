@@ -34,14 +34,14 @@ enum WaitlistStatus {
 }
 
 enum OrderStatus {
-  PENDING    // checkout started, not paid yet
-  PAID       // money held in SafePay, waiting for the shop to dispatch
+  PENDING // checkout started, not paid yet
+  PAID // money held in SafePay, waiting for the shop to dispatch
   SHIPPED
-  DELIVERED  // shop says delivered; auto-release clock is running
-  DISPUTED   // buyer reported a problem; money frozen until an admin decides
-  RELEASED   // paid out to the shop
+  DELIVERED // shop says delivered; auto-release clock is running
+  DISPUTED // buyer reported a problem; money frozen until an admin decides
+  RELEASED // paid out to the shop
   REFUNDED
-  CANCELLED  // never paid
+  CANCELLED // never paid
 }
 
 enum ConversationSource {
@@ -69,46 +69,46 @@ enum Author {
 
 /// How the AI sales agent behaves in a shop's chats.
 enum AgentMode {
-  OFF   // reps reply; no AI
+  OFF // reps reply; no AI
   DRAFT // reps reply; "Draft reply with AI" is available
-  AUTO  // the agent replies on its own and hands over to a rep when unsure
+  AUTO // the agent replies on its own and hands over to a rep when unsure
 }
 
 model Shop {
-  id                String   @id @default(cuid())
-  name              String
-  slug              String   @unique
-  igHandle          String?
-  whatsappNumber    String?  // public order number, E.164 digits, for wa.me links
-  missLimitMinutes  Int      @default(60)
-  bankDetails       String?
+  id                      String    @id @default(cuid())
+  name                    String
+  slug                    String    @unique
+  igHandle                String?
+  whatsappNumber          String? // public order number, E.164 digits, for wa.me links
+  missLimitMinutes        Int       @default(60)
+  bankDetails             String?
   // Meta connection. Tokens are encrypted at rest (see src/lib/crypto.ts).
-  waPhoneNumberId   String?  @unique
-  waTokenEnc        String?
-  igAccountId       String?  @unique
-  igTokenEnc        String?
+  waPhoneNumberId         String?   @unique
+  waTokenEnc              String?
+  igAccountId             String?   @unique
+  igTokenEnc              String?
   // SafePay payouts. The account name comes from the bank lookup, never typed by the vendor.
-  payoutBankCode      String?
-  payoutBankName      String?
-  payoutAccountNumber String?
-  payoutAccountName   String?
-  paystackRecipient   String?
+  payoutBankCode          String?
+  payoutBankName          String?
+  payoutAccountNumber     String?
+  payoutAccountName       String?
+  paystackRecipient       String?
   // Business verification: the shop submits its CAC registration, Oja staff check it and approve.
-  cacNumber              String?
-  registeredName         String?
+  cacNumber               String?
+  registeredName          String?
   verificationRequestedAt DateTime?
-  businessVerifiedAt     DateTime?
-  verificationNote       String?
+  businessVerifiedAt      DateTime?
+  verificationNote        String?
   // Delivery booking: where riders collect from. The code is Shipbubble's id for the checked address.
-  pickupAddress     String?
-  pickupCity        String?
-  pickupPhone       String?
-  pickupAddressCode Int?
+  pickupAddress           String?
+  pickupCity              String?
+  pickupPhone             String?
+  pickupAddressCode       Int?
   // AI sales agent and stock alerts
-  agentMode         AgentMode @default(AUTO) // new shops: the agent answers; shops from before 2.0 were set to DRAFT
-  agentNotes        String?  // extra facts for the agent: delivery areas, returns policy, opening hours
-  alertPhone        String?  // owner's WhatsApp, E.164 digits, for low/out-of-stock alerts
-  createdAt         DateTime @default(now())
+  agentMode               AgentMode @default(AUTO) // new shops: the agent answers; shops from before 2.0 were set to DRAFT
+  agentNotes              String? // extra facts for the agent: delivery areas, returns policy, opening hours
+  alertPhone              String? // owner's WhatsApp, E.164 digits, for low/out-of-stock alerts
+  createdAt               DateTime  @default(now())
 
   users         User[]
   products      Product[]
@@ -119,15 +119,15 @@ model Shop {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  shopId        String
-  shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  name          String
-  email         String   @unique
-  passwordHash  String
-  role          Role     @default(REP)
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(REP)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
 
   conversations Conversation[]
   messages      Message[]
@@ -135,36 +135,56 @@ model User {
 }
 
 model Product {
-  id         String   @id @default(cuid())
-  shopId     String
-  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  name       String
-  priceKobo  Int
-  stock      Int      @default(0)
-  imageUrl   String?
-  description String?
-  lowStockAt Int      @default(3) // alert the owner when stock falls to this
-  stockAlert String?  // last alert sent: "low" | "out"; cleared on restock so the next drop alerts again
-  archived   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  waitlist      WaitlistEntry[]
-  conversations Conversation[]
-  orders        Order[]
-
-  @@index([shopId])
-}
-
-model Contact {
   id          String   @id @default(cuid())
   shopId      String
   shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   name        String
-  waPhone     String?  // E.164 digits without "+", e.g. 2348031234567
-  igUserId    String?  // Instagram-scoped user id
-  igUsername  String?
-  waOptedOut  Boolean  @default(false)
+  priceKobo   Int
+  stock       Int      @default(0)
+  imageUrl    String?
+  description String?
+  lowStockAt  Int      @default(3) // alert the owner when stock falls to this
+  stockAlert  String? // last alert sent: "low" | "out"; cleared on restock so the next drop alerts again
+  archived    Boolean  @default(false)
   createdAt   DateTime @default(now())
+
+  waitlist      WaitlistEntry[]
+  conversations Conversation[]
+  orders        Order[]
+  variants      ProductVariant[]
+
+  @@index([shopId])
+}
+
+/// A size, colour or other option with its own stock. When a product has variants, its stock is their total.
+model ProductVariant {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  label      String // what buyers see, e.g. "Size 12" or "Size 12, Blue"
+  stock      Int      @default(0)
+  priceKobo  Int? // only when this option costs more or less than the product's price
+  stockAlert String? // last alert sent for this option: "out"
+  archived   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  orders   Order[]
+  waitlist WaitlistEntry[]
+
+  @@unique([productId, label])
+  @@index([productId])
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name       String
+  waPhone    String? // E.164 digits without "+", e.g. 2348031234567
+  igUserId   String? // Instagram-scoped user id
+  igUsername String?
+  waOptedOut Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   waitlist      WaitlistEntry[]
   conversations Conversation[]
@@ -174,42 +194,45 @@ model Contact {
 }
 
 model WaitlistEntry {
-  id          String         @id @default(cuid())
+  id          String          @id @default(cuid())
   productId   String
-  product     Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId   String? // the option they want; null means any
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   contactId   String
-  contact     Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact     Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
   source      WaitlistSource
-  status      WaitlistStatus @default(WAITING)
+  status      WaitlistStatus  @default(WAITING)
   consentText String
-  consentAt   DateTime       @default(now())
+  consentAt   DateTime        @default(now())
   alertedAt   DateTime?
-  createdAt   DateTime       @default(now())
+  createdAt   DateTime        @default(now())
 
   @@unique([productId, contactId])
   @@index([productId, status, createdAt])
+  @@index([variantId])
 }
 
 model Conversation {
-  id            String             @id @default(cuid())
-  shopId        String
-  shop          Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  contactId     String
-  contact       Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  channel       Channel
-  repId         String?
-  rep           User?              @relation(fields: [repId], references: [id], onDelete: SetNull)
-  productId     String?
-  product       Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
-  source        ConversationSource @default(ORGANIC)
-  status        ConversationStatus @default(OPEN)
-  startedAt     DateTime           @default(now())
-  firstReplyAt  DateTime?
-  lastBuyerAt   DateTime           @default(now())
-  amountKobo    Int?
-  closedAt      DateTime?
-  agentPaused   Boolean            @default(false) // a rep took over, or the agent handed over
-  handoverNote  String?            // why the agent handed over, shown at the top of the chat
+  id           String             @id @default(cuid())
+  shopId       String
+  shop         Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  contactId    String
+  contact      Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  channel      Channel
+  repId        String?
+  rep          User?              @relation(fields: [repId], references: [id], onDelete: SetNull)
+  productId    String?
+  product      Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
+  source       ConversationSource @default(ORGANIC)
+  status       ConversationStatus @default(OPEN)
+  startedAt    DateTime           @default(now())
+  firstReplyAt DateTime?
+  lastBuyerAt  DateTime           @default(now())
+  amountKobo   Int?
+  closedAt     DateTime?
+  agentPaused  Boolean            @default(false) // a rep took over, or the agent handed over
+  handoverNote String? // why the agent handed over, shown at the top of the chat
 
   messages Message[]
   orders   Order[]
@@ -236,56 +259,59 @@ model Message {
 }
 
 model Order {
-  id             String      @id @default(cuid())
-  shopId         String
-  shop           Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  productId      String?
-  product        Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
-  reference      String      @unique // sent to Paystack
-  buyerToken     String      @unique // secret in the buyer's tracking link
-  buyerName      String
-  buyerPhone     String      // E.164 digits
-  buyerEmail     String?
-  address        String
-  city           String
-  itemName       String
-  quantity       Int
-  amountKobo     Int         // items
-  feeKobo        Int         // buyer protection fee
-  totalKobo      Int         // what the buyer pays
-  status         OrderStatus @default(PENDING)
-  simulated      Boolean     @default(false) // paid in test mode, no real money moved
-  paidAt         DateTime?
-  shippedAt      DateTime?
-  courier        String?
-  trackingNote   String?
-  deliveredAt    DateTime?
-  releaseAt      DateTime?   // auto-release time, set when marked delivered
-  disputedAt     DateTime?
-  disputeReason  String?
-  disputeDetail  String?
-  resolvedAt     DateTime?
-  resolutionNote String?
+  id               String          @id @default(cuid())
+  shopId           String
+  shop             Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  productId        String?
+  product          Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId        String?
+  variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  reference        String          @unique // sent to Paystack
+  buyerToken       String          @unique // secret in the buyer's tracking link
+  buyerName        String
+  buyerPhone       String // E.164 digits
+  buyerEmail       String?
+  address          String
+  city             String
+  itemName         String
+  quantity         Int
+  amountKobo       Int // items
+  feeKobo          Int // buyer protection fee
+  totalKobo        Int // what the buyer pays
+  status           OrderStatus     @default(PENDING)
+  simulated        Boolean         @default(false) // paid in test mode, no real money moved
+  paidAt           DateTime?
+  shippedAt        DateTime?
+  courier          String?
+  trackingNote     String?
+  deliveredAt      DateTime?
+  releaseAt        DateTime? // auto-release time, set when marked delivered
+  disputedAt       DateTime?
+  disputeReason    String?
+  disputeDetail    String?
+  resolvedAt       DateTime?
+  resolutionNote   String?
   // pending | success | failed | simulated | awaiting_account
-  payoutStatus   String?
-  payoutKobo     Int?
-  payoutRef      String?     @unique
+  payoutStatus     String?
+  payoutKobo       Int?
+  payoutRef        String?         @unique
   // Delivery booked through Oja. The fee comes out of the shop's payout.
   buyerAddressCode Int?
-  deliveryQuote    Json?     // latest prices: { token, at, couriers[] }
-  shipmentId       String?   @unique
-  shipmentStatus   String?   // booking | pending | confirmed | picked_up | in_transit | completed | cancelled
+  deliveryQuote    Json? // latest prices: { token, at, couriers[] }
+  shipmentId       String?         @unique
+  shipmentStatus   String? // booking | pending | confirmed | picked_up | in_transit | completed | cancelled
   trackingUrl      String?
-  shippingKobo     Int       @default(0)
+  shippingKobo     Int             @default(0)
   // Set when the order was made inside a chat, so updates are logged in that chat
-  payUrl         String?     // Paystack checkout page, kept so the same link works if the buyer taps Pay again
-  conversationId String?
-  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  createdAt      DateTime    @default(now())
+  payUrl           String? // Paystack checkout page, kept so the same link works if the buyer taps Pay again
+  conversationId   String?
+  conversation     Conversation?   @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  createdAt        DateTime        @default(now())
 
   @@index([shopId, status])
   @@index([status, releaseAt])
   @@index([conversationId])
+  @@index([variantId])
 }
 
 /// Every action a staff member takes in the dashboard, so the owner can see who did what and when.
@@ -295,11 +321,11 @@ model Activity {
   shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action     String   // e.g. chat.reply, order.ship, product.restock, team.role
-  summary    String   // one line for people: "Replied to Ada on WhatsApp"
-  targetType String?  // conversation | order | product | user | shop
+  action     String // e.g. chat.reply, order.ship, product.restock, team.role
+  summary    String // one line for people: "Replied to Ada on WhatsApp"
+  targetType String? // conversation | order | product | user | shop
   targetId   String?
-  device     String?  // "Android phone", "iPhone", "Windows computer"…
+  device     String? // "Android phone", "iPhone", "Windows computer"…
   ip         String?
   createdAt  DateTime @default(now())
 

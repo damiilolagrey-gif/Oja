@@ -29,3 +29,9 @@ export function alertText(p: { shopName: string; product: string; stock: number;
   const waiting = p.waiting ? ` ${p.waiting} customer${p.waiting === 1 ? " is" : "s are"} waiting for it.` : "";
   return `${head}${waiting} Restock it here: ${p.link}`;
 }
+
+/** When some options of a product sell out but others are left. */
+export function variantOutText(p: { product: string; options: string[]; stockLeft: number; link: string }): string {
+  const which = p.options.length === 1 ? p.options[0] : `${p.options.slice(0, -1).join(", ")} and ${p.options[p.options.length - 1]}`;
+  return `${p.product}: ${which} ${p.options.length === 1 ? "is" : "are"} sold out. ${p.stockLeft} left in other options. Restock here: ${p.link}`;
+}

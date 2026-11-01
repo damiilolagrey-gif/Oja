@@ -16,7 +16,7 @@ export default async function Products() {
   const products = await db.product.findMany({
     where: { shopId: user.shopId, archived: false },
     orderBy: [{ stock: "asc" }, { createdAt: "desc" }],
-    include: { _count: { select: { waitlist: { where: { status: "WAITING" } } } } },
+    include: { _count: { select: { waitlist: { where: { status: "WAITING" } }, variants: { where: { archived: false } } } } },
   });
   const shopUrl = `${process.env.APP_URL ?? ""}/s/${user.shop.slug}`;
 
@@ -56,7 +56,8 @@ export default async function Products() {
                 {p.stock ? <span className="pill plain num">{p.stock} in stock</span> : <span className="pill bad">Sold out</span>}
                 {p._count.waitlist > 0 && <span className="pill gold">{p._count.waitlist} waiting</span>}
               </div>
-              {canEdit && <ActionForm action={restockProduct} className="stack">
+              {p._count.variants > 0 && <p className="small muted" style={{ marginTop: 4 }}>{p._count.variants} options · <Link href={`/app/products/${p.id}`}>restock by option</Link></p>}
+              {canEdit && p._count.variants === 0 && <ActionForm action={restockProduct} className="stack">
                 <input type="hidden" name="productId" value={p.id} />
                 <div className="restock">
                   <input className="input" name="units" type="number" inputMode="numeric" min={1} defaultValue={p.stock ? "" : 3} placeholder="Units" aria-label={`Units of ${p.name} arriving`} required />

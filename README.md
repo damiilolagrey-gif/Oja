@@ -83,6 +83,15 @@ existing product update it, and blank cells leave that field alone. The owner se
 before anything is saved. New stock goes through the normal restock, so buyers on a restock list get their WhatsApp
 message. "Download your products" exports the current list in the same layout, so it also serves as the template.
 
+## Sizes and colours
+
+A product can have options (sizes, colours) on its product page, each with its own stock and, if needed, its own price.
+The product's stock becomes the total of its options, so lists and alerts keep working. Buyers pick an option on the
+shop page, and the AI agent asks which one before it creates the order. The restock list can be for one option or any;
+restocking an option alerts only the buyers who wanted it, or any option. When one option sells out while others are
+left, the owner gets a WhatsApp alert naming it. Spreadsheet upload can change the price of a product with options but
+not its stock, which is set per option.
+
 ## AI drafts
 
 Set `ANTHROPIC_API_KEY`. Drafts use Claude Opus 5.5 at low effort (short chat replies don't need more), with server-side refusal fallback turned on. Each draft sends the last 20 messages of that chat and up to 40 products. Without a key the button is hidden.
