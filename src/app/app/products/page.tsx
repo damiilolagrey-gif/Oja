@@ -6,6 +6,7 @@ import { ActionForm, Submit } from "@/components/ActionForm";
 import { restockProduct, saveProduct } from "@/app/actions/products";
 import { can } from "@/lib/permissions";
 import { ProductFields } from "./ProductFields";
+import { ImportPanel } from "./ImportPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,11 @@ export default async function Products() {
             <Submit>Add product</Submit>
           </ActionForm>
         </div>
+      </details>}
+
+      {canEdit && <details className="panel">
+        <summary className="panel-h"><h2>Upload a spreadsheet</h2><span className="btn">Upload</span></summary>
+        <div className="panel-b"><ImportPanel /></div>
       </details>}
 
       <section className="panel list">

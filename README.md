@@ -75,6 +75,14 @@ Orders made in a chat link to the buyer's tracking page, which now has a **Pay n
 
 For stock alerts that arrive at any time, create a *Utility* template and set `WA_STOCK_TEMPLATE` (body variables `{{1}}` product, `{{2}}` units left, `{{3}}` customers waiting, `{{4}}` restock link). Without it, alerts are plain WhatsApp messages, which Meta only delivers if the owner wrote to the shop's number in the last 24 hours. Order updates fall back the same way: without `WA_ORDER_TEMPLATE`, an order made in a WhatsApp chat gets plain messages while the 24-hour window is open.
 
+## Bulk product upload
+
+Products → Upload a spreadsheet takes a CSV saved from Excel or Google Sheets, or cells pasted straight from the sheet.
+Columns are Name and Price, plus optional Stock, Image link, Description and Low stock at. Rows whose name matches an
+existing product update it, and blank cells leave that field alone. The owner sees what will change and fixes any bad rows
+before anything is saved. New stock goes through the normal restock, so buyers on a restock list get their WhatsApp
+message. "Download your products" exports the current list in the same layout, so it also serves as the template.
+
 ## AI drafts
 
 Set `ANTHROPIC_API_KEY`. Drafts use Claude Opus 5.5 at low effort (short chat replies don't need more), with server-side refusal fallback turned on. Each draft sends the last 20 messages of that chat and up to 40 products. Without a key the button is hidden.
