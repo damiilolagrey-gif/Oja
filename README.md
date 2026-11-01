@@ -99,6 +99,15 @@ Studio (owners and managers) makes ads for any product:
 - **Images:** drawn in the browser from the product photo, price and an "Order on WhatsApp" button, in square, portrait, story and landscape sizes, then downloaded as a PNG. The photo is fetched through `/app/studio/photo/[id]`, which serves only the shop's own product photos over https and refuses private network addresses.
 - **Order link:** every ad points to `wa.me/<shop WhatsApp number>` with the product typed in, so the AI sales agent picks up the chat. Without a WhatsApp number it points to the shop page.
 
+## Ads manager (test mode)
+
+Under **Ads → Campaigns**, owners and managers set up a campaign for Facebook & Instagram, Google or TikTok: the product, the ad copy from the studio, a daily budget (at least ₦1,000), how many days (1 to 60), Nigerian states and ages.
+
+- **Tracked link.** Every campaign gets a short code and a WhatsApp link with it already typed, e.g. `Hi Asa Wears, I'd like the Adire silk kaftan (ref K7ZKX2)`. When a buyer's first message carries the code, the chat is marked "from ad" and credited to the campaign, and so is any order made in that chat. Without a WhatsApp number the link opens the checkout page with `?c=CODE`.
+- **Results.** Chats, orders (paid checkouts, plus chats marked paid by hand) and sales per campaign. Cost per chat, cost per order and money back per ₦1 appear once the spend is known. The owner types it in for now; nothing is estimated.
+- **Test mode.** No ad account is connected yet (Meta Business verification, Google Ads and TikTok approval are pending), so starting a campaign doesn't put an ad live. The owner runs the ad themselves with the tracked link. **Ads → Ad accounts** explains what each platform needs. The `AdAccount` table and the campaign's `live`, `externalId`, `impressions` and `clicks` columns are there for the real connection.
+- Start, pause, resume and end are logged in the activity log. Sales reps can't see ads.
+
 ## AI drafts
 
 Set `ANTHROPIC_API_KEY`. Drafts use Claude Opus 5.5 at low effort (short chat replies don't need more), with server-side refusal fallback turned on. Each draft sends the last 20 messages of that chat and up to 40 products. Without a key the button is hidden.

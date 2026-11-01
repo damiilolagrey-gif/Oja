@@ -47,6 +47,20 @@ enum OrderStatus {
 enum ConversationSource {
   ORGANIC
   ALERT
+  AD
+}
+
+enum AdPlatform {
+  META
+  GOOGLE
+  TIKTOK
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
 }
 
 enum ConversationStatus {
@@ -120,20 +134,73 @@ model Shop {
   orders        Order[]
   activities    Activity[]
   creatives     AdCreative[]
+  adAccounts    AdAccount[]
+  campaigns     Campaign[]
+}
+
+/// The shop's own ad account on each platform. The shop pays the platform with its own card.
+model AdAccount {
+  id         String     @id @default(cuid())
+  shopId     String
+  shop       Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  platform   AdPlatform
+  status     String     @default("not_connected") // not_connected | pending | connected
+  externalId String? // e.g. Meta "act_123", Google customer id, TikTok advertiser id
+  name       String?
+  tokenEnc   String?
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([shopId, platform])
+}
+
+/// An ad campaign for one product. Its code goes into the WhatsApp link so chats and orders are counted here.
+model Campaign {
+  id              String         @id @default(cuid())
+  shopId          String
+  shop            Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  platform        AdPlatform
+  productId       String?
+  product         Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  creativeId      String?
+  creative        AdCreative?    @relation(fields: [creativeId], references: [id], onDelete: SetNull)
+  name            String
+  code            String         @unique // short ref in the WhatsApp link, e.g. "K7Q2MX"
+  dailyBudgetKobo Int
+  days            Int
+  locations       String[]
+  ageMin          Int            @default(18)
+  ageMax          Int            @default(55)
+  status          CampaignStatus @default(DRAFT)
+  live            Boolean        @default(false) // true once running on the platform; false = tracked link only
+  externalId      String?
+  // Reported by the platform once connected
+  spendKobo       Int            @default(0)
+  impressions     Int            @default(0)
+  clicks          Int            @default(0)
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdById     String?
+  createdAt       DateTime       @default(now())
+
+  conversations Conversation[]
+  orders        Order[]
+
+  @@index([shopId, createdAt])
 }
 
 /// A saved set of ad copy for one product, written by the AI or the template and possibly edited by staff.
 model AdCreative {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   shopId      String
-  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop        Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
   productId   String?
-  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  product     Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
   angle       String
   copy        Json // AdCopy: instagram, facebook, tiktok, google, whatsappStatus
   source      String // "ai" | "template"
   createdById String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime   @default(now())
+  campaigns   Campaign[]
 
   @@index([shopId, createdAt])
   @@index([productId])
@@ -174,6 +241,7 @@ model Product {
   orders        Order[]
   variants      ProductVariant[]
   creatives     AdCreative[]
+  campaigns     Campaign[]
 
   @@index([shopId])
 }
@@ -253,6 +321,8 @@ model Conversation {
   lastBuyerAt  DateTime           @default(now())
   amountKobo   Int?
   closedAt     DateTime?
+  campaignId   String?
+  campaign     Campaign?          @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   agentPaused  Boolean            @default(false) // a rep took over, or the agent handed over
   handoverNote String? // why the agent handed over, shown at the top of the chat
 
@@ -261,6 +331,7 @@ model Conversation {
 
   @@index([shopId, status])
   @@index([shopId, startedAt])
+  @@index([campaignId])
 }
 
 model Message {
@@ -288,6 +359,8 @@ model Order {
   product          Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   variantId        String?
   variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  campaignId       String?
+  campaign         Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   reference        String          @unique // sent to Paystack
   buyerToken       String          @unique // secret in the buyer's tracking link
   buyerName        String
@@ -333,6 +406,7 @@ model Order {
   @@index([shopId, status])
   @@index([status, releaseAt])
   @@index([conversationId])
+  @@index([campaignId])
   @@index([variantId])
 }
 

@@ -37,14 +37,29 @@ async function notifyBuyer(shop: Shop, o: Order, update: string) {
 export type Buyer = { name: string; phone: string; email?: string | null; address: string; city: string };
 
 /** Creates an unpaid order for one product. The caller checks stock and validates the buyer's details. */
-export async function createOrder(shop: Shop, product: Product, quantity: number, buyer: Buyer, conversationId?: string, variant?: Variant | null) {
+/**
+ * A new unpaid order. It is credited to an ad campaign when the chat it came from was started by one, or when
+ * the buyer arrived on the checkout page through a campaign's link (`campaignCode`).
+ */
+export async function createOrder(
+  shop: Shop,
+  product: Product,
+  quantity: number,
+  buyer: Buyer,
+  conversationId?: string,
+  variant?: Variant | null,
+  campaignCode?: string | null,
+) {
   const totals = orderTotals(unitPrice(product.priceKobo, variant), quantity, escrowConfig());
+  const fromChat = conversationId ? await db.conversation.findUnique({ where: { id: conversationId }, select: { campaignId: true } }) : null;
+  const fromLink = !fromChat?.campaignId && campaignCode ? await db.campaign.findFirst({ where: { code: campaignCode, shopId: shop.id }, select: { id: true } }) : null;
   return db.order.create({
     data: {
       shopId: shop.id,
       productId: product.id,
       variantId: variant?.id ?? null,
       conversationId: conversationId ?? null,
+      campaignId: fromChat?.campaignId ?? fromLink?.id ?? null,
       reference: "oja_" + randomBytes(8).toString("hex"),
       buyerToken: randomBytes(18).toString("base64url"),
       buyerName: buyer.name,

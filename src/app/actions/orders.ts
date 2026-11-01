@@ -37,7 +37,7 @@ export async function startCheckout(_: FormState, data: FormData): Promise<FormS
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "That email address doesn't look right." };
   if (address.length < 8 || !city) return { error: "Add your full delivery address and city." };
 
-  const order = await createOrder(shop, product, quantity, { name: buyerName, phone: buyerPhone, email, address, city }, undefined, picked.variant);
+  const order = await createOrder(shop, product, quantity, { name: buyerName, phone: buyerPhone, email, address, city }, undefined, picked.variant, str(data, "c").toUpperCase().slice(0, 12) || null);
   const pay = await startPayment({ ...order, shop });
   if ("error" in pay) {
     await db.order.update({ where: { id: order.id }, data: { status: "CANCELLED" } });

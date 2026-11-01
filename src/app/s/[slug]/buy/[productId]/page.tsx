@@ -12,8 +12,9 @@ import { startCheckout } from "@/app/actions/orders";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Pay safely" };
 
-export default async function Buy({ params }: { params: Promise<{ slug: string; productId: string }> }) {
+export default async function Buy({ params, searchParams }: { params: Promise<{ slug: string; productId: string }>; searchParams: Promise<{ c?: string }> }) {
   const { slug, productId } = await params;
+  const { c } = await searchParams;
   const shop = await db.shop.findUnique({ where: { slug } });
   const product = shop && (await db.product.findFirst({ where: { id: productId, shopId: shop.id, archived: false }, include: { variants: { where: { archived: false }, orderBy: { createdAt: "asc" } } } }));
   if (!shop || !product) notFound();
@@ -47,6 +48,7 @@ export default async function Buy({ params }: { params: Promise<{ slug: string; 
           <ActionForm action={startCheckout}>
             <input type="hidden" name="slug" value={shop.slug} />
             <input type="hidden" name="productId" value={product.id} />
+            {c && <input type="hidden" name="c" value={c.slice(0, 12)} />}
             {product.variants.length > 0 && (
               <label className="field">Choose an option
                 <select className="input" name="variantId" required defaultValue={product.variants.find(v => v.stock > 0)?.id}>

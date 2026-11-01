@@ -65,6 +65,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
               {c.product && <span>{c.product.name}</span>}
               <span>{c.rep ? c.rep.name.split(" ")[0] : "Unassigned"}</span>
               {c.source === "ALERT" && <span className="pill gold">from alert</span>}
+              {c.source === "AD" && <span className="pill good">from ad</span>}
             </span>
           </Link>
         ))}
