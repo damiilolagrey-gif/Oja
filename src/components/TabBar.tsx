@@ -8,6 +8,7 @@ const icons: Record<string, React.ReactNode> = {
   products: <path d="M4 7h16l-1.5 13h-13zM9 7a3 3 0 0 1 6 0" />,
   orders: <path d="M5 4h14v16l-3-2-2 2-2-2-2 2-2-2-3 2zM9 9h6M9 13h6" />,
   admin: <path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z" />,
+  studio: <path d="M4 20l4-1 11-11-3-3L5 16zM14 6l3 3M4 4h5M4 4v5" />,
   inbox: <path d="M4 5h16v11H9l-5 4z" />,
   team: <path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm-6 9a6 6 0 0 1 12 0M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14a6 6 0 0 1 3 6" />,
   settings: <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4.9a7.5 7.5 0 0 0-2-1.2L14.5 3h-5l-.4 2.5a7.5 7.5 0 0 0-2 1.2l-2.4-.9-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-.9a7.5 7.5 0 0 0 2 1.2l.4 2.5h5l.4-2.5a7.5 7.5 0 0 0 2-1.2l2.4.9 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z" />,
@@ -18,13 +19,15 @@ const tabs = [
   { href: "/app/products", label: "Products", icon: "products" },
   { href: "/app/orders", label: "Orders", icon: "orders" },
   { href: "/app/inbox", label: "Inbox", icon: "inbox" },
+  { href: "/app/studio", label: "Studio", icon: "studio" },
   { href: "/app/team", label: "Team", icon: "team" },
   { href: "/app/settings", label: "Settings", icon: "settings" },
 ];
 
-export function TabBar({ waiting, toShip, admin }: { waiting: number; toShip: number; admin: boolean }) {
+export function TabBar({ waiting, toShip, admin, studio }: { waiting: number; toShip: number; admin: boolean; studio: boolean }) {
   const path = usePathname();
-  const shown = admin ? [...tabs, { href: "/app/admin", label: "Disputes", icon: "admin" }] : tabs;
+  const mine = studio ? tabs : tabs.filter(t => t.icon !== "studio");
+  const shown = admin ? [...mine, { href: "/app/admin", label: "Disputes", icon: "admin" }] : mine;
   return (
     <nav className="tabbar" aria-label="Main" style={{ "--tabs": shown.length } as React.CSSProperties}>
       {shown.map(t => {

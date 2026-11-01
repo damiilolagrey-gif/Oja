@@ -108,6 +108,9 @@ model Shop {
   agentMode               AgentMode @default(AUTO) // new shops: the agent answers; shops from before 2.0 were set to DRAFT
   agentNotes              String? // extra facts for the agent: delivery areas, returns policy, opening hours
   alertPhone              String? // owner's WhatsApp, E.164 digits, for low/out-of-stock alerts
+  // Creative studio
+  brandColor              String? // hex, e.g. "#2f3b8f", used on ad images
+  brandVoice              String? // how the shop sounds, e.g. "playful, light pidgin is fine"
   createdAt               DateTime  @default(now())
 
   users         User[]
@@ -116,6 +119,24 @@ model Shop {
   conversations Conversation[]
   orders        Order[]
   activities    Activity[]
+  creatives     AdCreative[]
+}
+
+/// A saved set of ad copy for one product, written by the AI or the template and possibly edited by staff.
+model AdCreative {
+  id          String   @id @default(cuid())
+  shopId      String
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  angle       String
+  copy        Json // AdCopy: instagram, facebook, tiktok, google, whatsappStatus
+  source      String // "ai" | "template"
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([productId])
 }
 
 model User {
@@ -152,6 +173,7 @@ model Product {
   conversations Conversation[]
   orders        Order[]
   variants      ProductVariant[]
+  creatives     AdCreative[]
 
   @@index([shopId])
 }
