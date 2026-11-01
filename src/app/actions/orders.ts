@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { chooseVariant } from "@/lib/variants";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { normalizeNigerianPhone } from "@/lib/phone";
@@ -19,10 +20,13 @@ const str = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 
 export async function startCheckout(_: FormState, data: FormData): Promise<FormState> {
   const shop = await db.shop.findUnique({ where: { slug: str(data, "slug") } });
-  const product = shop && (await db.product.findFirst({ where: { id: str(data, "productId"), shopId: shop.id, archived: false } }));
+  const product = shop && (await db.product.findFirst({ where: { id: str(data, "productId"), shopId: shop.id, archived: false }, include: { variants: true } }));
   if (!shop || !product) return { error: "This item is no longer available." };
   const quantity = Math.max(1, Math.min(20, Number(data.get("quantity")) || 1));
-  if (product.stock < quantity) return { error: product.stock ? `Only ${product.stock} left.` : "Sorry, this just sold out." };
+  const picked = chooseVariant(product.variants, data.get("variantId"));
+  if (!picked.ok) return { error: "Choose an option first." };
+  const stock = picked.variant ? picked.variant.stock : product.stock;
+  if (stock < quantity) return { error: stock ? `Only ${stock} left.` : "Sorry, this just sold out." };
   const buyerName = str(data, "name");
   const buyerPhone = normalizeNigerianPhone(str(data, "phone"));
   const email = str(data, "email").toLowerCase();
@@ -33,7 +37,7 @@ export async function startCheckout(_: FormState, data: FormData): Promise<FormS
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "That email address doesn't look right." };
   if (address.length < 8 || !city) return { error: "Add your full delivery address and city." };
 
-  const order = await createOrder(shop, product, quantity, { name: buyerName, phone: buyerPhone, email, address, city });
+  const order = await createOrder(shop, product, quantity, { name: buyerName, phone: buyerPhone, email, address, city }, undefined, picked.variant);
   const pay = await startPayment({ ...order, shop });
   if ("error" in pay) {
     await db.order.update({ where: { id: order.id }, data: { status: "CANCELLED" } });
@@ -49,7 +53,8 @@ export async function payNow(_: FormState, data: FormData): Promise<FormState> {
   if (o.status !== "PENDING") return { error: "This order is already paid or closed." };
   if (o.productId) {
     const p = await db.product.findUnique({ where: { id: o.productId } });
-    if (!p || p.archived || p.stock < o.quantity) return { error: "Sorry, this item sold out before payment. Ask the shop in the chat to join the restock list." };
+    const v = o.variantId ? await db.productVariant.findUnique({ where: { id: o.variantId } }) : null;
+    if (!p || p.archived || (o.variantId ? !v || v.archived || v.stock < o.quantity : p.stock < o.quantity)) return { error: "Sorry, this item sold out before payment. Ask the shop in the chat to join the restock list." };
   }
   const pay = await startPayment(o);
   if ("error" in pay) return { error: pay.error };

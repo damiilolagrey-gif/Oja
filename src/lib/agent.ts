@@ -5,6 +5,7 @@
  */
 import { naira } from "./format";
 import { normalizeNigerianPhone } from "./phone";
+import { chooseVariant, live, optionsLine, type Variant } from "./variants";
 
 export type AgentProduct = {
   id: string;
@@ -13,6 +14,7 @@ export type AgentProduct = {
   stock: number;
   description: string | null;
   hasImage: boolean;
+  options?: Variant[]; // sizes, colours: each with its own stock
 };
 
 export type AgentOrder = { reference: string; itemName: string; status: string; totalKobo: number; trackingLink: string; payLink: string | null };
@@ -50,6 +52,7 @@ export const AGENT_TOOLS = [
       type: "object" as const,
       properties: {
         product_id: { type: "string" },
+        variant_id: { type: "string", description: "the option id (size, colour) when the product has options" },
         quantity: { type: "integer", minimum: 1, maximum: 20 },
         name: { type: "string", description: "buyer's name for the delivery" },
         address: { type: "string", description: "street address with house number and area" },
@@ -65,7 +68,11 @@ export const AGENT_TOOLS = [
       "Add the buyer to the restock list for a sold-out item, after they said yes to being messaged when it is back. On Instagram, include their WhatsApp number.",
     input_schema: {
       type: "object" as const,
-      properties: { product_id: { type: "string" }, phone: { type: "string", description: "only needed on Instagram" } },
+      properties: {
+        product_id: { type: "string" },
+        variant_id: { type: "string", description: "the option they want, if the product has options; omit for any" },
+        phone: { type: "string", description: "only needed on Instagram" },
+      },
       required: ["product_id"],
     },
   },
@@ -89,6 +96,7 @@ How to behave:
 - Sound like a friendly, professional Nigerian vendor. Plain English; match the buyer if they write in Pidgin. Short: 1 to 3 sentences, under 60 words, at most one emoji.
 - Use only the catalogue, the shop's notes and the buyer's orders below. Never invent prices, sizes, colours, stock, delivery fees, delivery times or discounts. If you don't know, hand over.
 - To show an item, use show_product. To sell, collect name, full delivery address and city (and a phone number on Instagram), then use create_checkout and send the payment link. Say the money is held safely until they confirm they got the item.
+- Some items have options (sizes, colours), each with its own stock and id. Ask which option they want before checkout and pass its id; if their option is sold out, offer another or the restock list for that option.
 - Every order adds a buyer protection fee, shown below; mention it with the total.
 - If an item is sold out, say so and offer to message them when it's back; only use join_waitlist after they agree.
 - For order questions, use the buyer's orders below and give the tracking link.
@@ -100,7 +108,10 @@ export function buildBrief(ctx: AgentContext): string {
   const catalogue = ctx.products
     .map(
       p =>
-        `- id ${p.id}: ${p.name}, ${naira(p.priceKobo)}, ${p.stock > 0 ? `${p.stock} in stock` : "SOLD OUT"}${p.description ? `. ${p.description.slice(0, 200)}` : ""}`,
+        `- id ${p.id}: ${p.name}, ${naira(p.priceKobo)}, ${p.stock > 0 ? `${p.stock} in stock` : "SOLD OUT"}${p.description ? `. ${p.description.slice(0, 200)}` : ""}` +
+        live(p.options ?? [])
+          .map(o => `\n    option id ${o.id}: ${o.label}${o.priceKobo !== null && o.priceKobo !== p.priceKobo ? `, ${naira(o.priceKobo)}` : ""}, ${o.stock > 0 ? `${o.stock} in stock` : "SOLD OUT"}`)
+          .join(""),
     )
     .join("\n");
   const orders = ctx.orders
@@ -130,19 +141,25 @@ Reply to the buyer's latest message.`;
 const HUMAN = /\b(human|real person|customer (care|service)|(talk|speak) (to|with) (someone|somebody|a person|the owner|your (boss|manager|oga))|call me)\b/i;
 export const wantsHuman = (text: string) => HUMAN.test(text);
 
-export type CheckoutInput = { product_id?: unknown; quantity?: unknown; name?: unknown; address?: unknown; city?: unknown; phone?: unknown };
+export type CheckoutInput = { product_id?: unknown; variant_id?: unknown; quantity?: unknown; name?: unknown; address?: unknown; city?: unknown; phone?: unknown };
 
 /** Checks a create_checkout call. Returns what to order or a message the AI can act on. */
 export function checkCheckout(
   input: CheckoutInput,
-  product: { id: string; stock: number; archived: boolean } | null,
+  product: { id: string; stock: number; archived: boolean; variants?: Variant[] } | null,
   chatWaPhone: string | null,
-): { ok: true; quantity: number; name: string; address: string; city: string; phone: string } | { ok: false; error: string } {
+):
+  | { ok: true; quantity: number; name: string; address: string; city: string; phone: string; variant: Variant | null }
+  | { ok: false; error: string } {
   if (!product || product.archived) return { ok: false, error: "No product with that id in this shop's catalogue." };
+  const picked = chooseVariant(product.variants ?? [], input.variant_id);
+  if (!picked.ok) return picked;
   const quantity = Number(input.quantity);
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) return { ok: false, error: "Quantity must be a whole number from 1 to 20." };
-  if (product.stock < quantity) {
-    return { ok: false, error: product.stock ? `Only ${product.stock} in stock. Ask if they want fewer.` : "Sold out. Offer the restock list instead." };
+  const stock = picked.variant ? picked.variant.stock : product.stock;
+  if (stock < quantity) {
+    const what = picked.variant ? `${picked.variant.label} is` : "It is";
+    return { ok: false, error: stock ? `Only ${stock} in stock. Ask if they want fewer.` : `${what} sold out. Offer another option or the restock list instead.` };
   }
   const name = String(input.name ?? "").trim();
   const address = String(input.address ?? "").trim();
@@ -152,16 +169,17 @@ export function checkCheckout(
   if (city.length < 2) return { ok: false, error: "Ask which city to deliver to." };
   const phone = input.phone ? normalizeNigerianPhone(String(input.phone)) : chatWaPhone;
   if (!phone) return { ok: false, error: "Ask for a Nigerian phone number the rider can call, like 0803 123 4567." };
-  return { ok: true, quantity, name: name.slice(0, 100), address: address.slice(0, 300), city: city.slice(0, 60), phone };
+  return { ok: true, quantity, name: name.slice(0, 100), address: address.slice(0, 300), city: city.slice(0, 60), phone, variant: picked.variant };
 }
 
 /** The card text and buttons for a product. Button ids are not shown to the buyer; titles come back as their message. */
-export function productCard(p: { id: string; name: string; priceKobo: number; stock: number; description: string | null }) {
+export function productCard(p: { id: string; name: string; priceKobo: number; stock: number; description: string | null; options?: Variant[] }) {
   const inStock = p.stock > 0;
   const lines = [
     `*${p.name}*`,
     naira(p.priceKobo),
     inStock ? (p.stock <= 3 ? `Only ${p.stock} left` : "In stock") : "Sold out right now",
+    optionsLine(p.priceKobo, p.options ?? []),
     p.description ? p.description.slice(0, 300) : null,
   ].filter(Boolean);
   const buttons = inStock

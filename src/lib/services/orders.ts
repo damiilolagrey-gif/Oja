@@ -6,6 +6,8 @@ import { escrowConfig, fromStatuses, orderTotals, releaseDue, releaseTime, shopP
 import { initializeTransaction, paystackConfigured, refund as paystackRefund, transfer } from "../paystack";
 import { sendOrderUpdateTemplate, sendWhatsAppText } from "../meta";
 import { checkStock } from "./stock";
+import { syncStock } from "./variants";
+import { itemName, unitPrice, type Variant } from "../variants";
 
 export const trackingLink = (o: Pick<Order, "buyerToken">) => `${process.env.APP_URL ?? ""}/o/${o.buyerToken}`;
 
@@ -35,12 +37,13 @@ async function notifyBuyer(shop: Shop, o: Order, update: string) {
 export type Buyer = { name: string; phone: string; email?: string | null; address: string; city: string };
 
 /** Creates an unpaid order for one product. The caller checks stock and validates the buyer's details. */
-export async function createOrder(shop: Shop, product: Product, quantity: number, buyer: Buyer, conversationId?: string) {
-  const totals = orderTotals(product.priceKobo, quantity, escrowConfig());
+export async function createOrder(shop: Shop, product: Product, quantity: number, buyer: Buyer, conversationId?: string, variant?: Variant | null) {
+  const totals = orderTotals(unitPrice(product.priceKobo, variant), quantity, escrowConfig());
   return db.order.create({
     data: {
       shopId: shop.id,
       productId: product.id,
+      variantId: variant?.id ?? null,
       conversationId: conversationId ?? null,
       reference: "oja_" + randomBytes(8).toString("hex"),
       buyerToken: randomBytes(18).toString("base64url"),
@@ -49,7 +52,7 @@ export async function createOrder(shop: Shop, product: Product, quantity: number
       buyerEmail: buyer.email || null,
       address: buyer.address,
       city: buyer.city,
-      itemName: product.name,
+      itemName: itemName(product.name, variant),
       quantity,
       ...totals,
     },
@@ -97,7 +100,11 @@ export async function markPaid(reference: string, paidKobo: number, simulated = 
   if (paidKobo < o.totalKobo) return o; // underpaid: leave it pending for an admin to look at
   const paid = await transition(o.id, ["PENDING"], "PAID", { paidAt: new Date(), simulated });
   if (!paid) return db.order.findUnique({ where: { reference } });
-  if (paid.productId) {
+  if (paid.productId && paid.variantId) {
+    await db.productVariant.updateMany({ where: { id: paid.variantId, stock: { gte: paid.quantity } }, data: { stock: { decrement: paid.quantity } } });
+    await syncStock(paid.productId);
+    await checkStock(paid.shop, paid.productId);
+  } else if (paid.productId) {
     await db.product.updateMany({ where: { id: paid.productId, stock: { gte: paid.quantity } }, data: { stock: { decrement: paid.quantity } } });
     await checkStock(paid.shop, paid.productId);
   }

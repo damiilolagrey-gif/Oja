@@ -139,7 +139,9 @@ export async function markWon(shopId: string, conversationId: string, amountKobo
   await db.$transaction(async tx => {
     await tx.conversation.update({ where: { id: c.id }, data: { status: "WON", amountKobo, closedAt: new Date() } });
     if (c.productId) {
-      await tx.product.updateMany({ where: { id: c.productId, stock: { gt: 0 } }, data: { stock: { decrement: 1 } } });
+      // A product with options doesn't say which one sold, so its stock is left for the team to adjust.
+      const options = await tx.productVariant.count({ where: { productId: c.productId, archived: false } });
+      if (!options) await tx.product.updateMany({ where: { id: c.productId, stock: { gt: 0 } }, data: { stock: { decrement: 1 } } });
       await tx.waitlistEntry.updateMany({
         where: { productId: c.productId, contactId: c.contactId, status: { in: ["ALERTED", "REPLIED", "WAITING"] } },
         data: { status: "BOUGHT" },

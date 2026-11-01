@@ -18,7 +18,7 @@ export default async function Notify({
   const { slug, productId } = await params;
   const ref = (await searchParams).ref ?? "";
   const shop = await db.shop.findUnique({ where: { slug } });
-  const product = shop && (await db.product.findFirst({ where: { id: productId, shopId: shop.id, archived: false } }));
+  const product = shop && (await db.product.findFirst({ where: { id: productId, shopId: shop.id, archived: false }, include: { variants: { where: { archived: false }, orderBy: { createdAt: "asc" } } } }));
   if (!shop || !product) notFound();
   const waiting = await db.waitlistEntry.count({ where: { productId: product.id, status: "WAITING" } });
 
@@ -38,6 +38,14 @@ export default async function Notify({
           <input type="hidden" name="slug" value={shop.slug} />
           <input type="hidden" name="productId" value={product.id} />
           <input type="hidden" name="ref" value={ref} />
+          {product.variants.length > 0 && (
+            <label className="field">Which option
+              <select className="input" name="variantId" defaultValue={product.variants.find(v => v.stock <= 0)?.id ?? ""}>
+                <option value="">Any option</option>
+                {product.variants.map(v => <option key={v.id} value={v.id}>{v.label}{v.stock > 0 ? " · in stock now" : ""}</option>)}
+              </select>
+            </label>
+          )}
           <label className="field">Your name<input className="input" name="name" autoComplete="given-name" required /></label>
           <label className="field">WhatsApp number<input className="input" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0803 123 4567" required /></label>
           <label className="check"><input type="checkbox" name="consent" defaultChecked /> {consentText(shop.name)}</label>

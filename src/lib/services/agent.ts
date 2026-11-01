@@ -9,6 +9,7 @@ import { AGENT_TOOLS, buildBrief, checkCheckout, productCard, SYSTEM_PROMPT, wan
 import { normalizeNigerianPhone } from "../phone";
 import { sendInstagramCard, sendInstagramText, sendWhatsAppButtons, sendWhatsAppText, type SendResult } from "../meta";
 import { createOrder, trackingLink } from "./orders";
+import { itemName } from "../variants";
 import { joinWaitlist } from "./waitlist";
 
 /**
@@ -63,13 +64,18 @@ export async function runAgent(shop: Shop, conversationId: string): Promise<"off
   }
 
   const [products, orders, waiting] = await Promise.all([
-    db.product.findMany({ where: { shopId: shop.id, archived: false }, orderBy: { createdAt: "desc" }, take: 60 }),
+    db.product.findMany({
+      where: { shopId: shop.id, archived: false },
+      orderBy: { createdAt: "desc" },
+      take: 60,
+      include: { variants: { where: { archived: false }, orderBy: { createdAt: "asc" } } },
+    }),
     db.order.findMany({
       where: { shopId: shop.id, OR: [{ conversation: { is: { contactId: c.contactId } } }, ...(c.contact.waPhone ? [{ buyerPhone: c.contact.waPhone }] : [])] },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
-    db.waitlistEntry.findMany({ where: { contactId: c.contactId, status: "WAITING" }, include: { product: true } }),
+    db.waitlistEntry.findMany({ where: { contactId: c.contactId, status: "WAITING" }, include: { product: true, variant: true } }),
   ]);
 
   const ctx: AgentContext = {
@@ -79,7 +85,7 @@ export async function runAgent(shop: Shop, conversationId: string): Promise<"off
     buyerWaPhone: c.contact.waPhone,
     notes: shop.agentNotes,
     buyerFeeKobo: escrowConfig().buyerFeeKobo,
-    products: products.map(p => ({ id: p.id, name: p.name, priceKobo: p.priceKobo, stock: p.stock, description: p.description, hasImage: !!p.imageUrl })),
+    products: products.map(p => ({ id: p.id, name: p.name, priceKobo: p.priceKobo, stock: p.stock, description: p.description, hasImage: !!p.imageUrl, options: p.variants })),
     orders: orders.map(o => ({
       reference: o.reference,
       itemName: o.itemName,
@@ -88,7 +94,7 @@ export async function runAgent(shop: Shop, conversationId: string): Promise<"off
       trackingLink: trackingLink(o),
       payLink: o.status === "PENDING" ? trackingLink(o) : null,
     })),
-    waitlisted: waiting.map(w => w.product.name),
+    waitlisted: waiting.map(w => itemName(w.product.name, w.variant)),
     messages: [...c.messages].reverse().map(m => ({
       from: m.direction === "IN" ? "buyer" : m.author === "SYSTEM" ? "system" : "shop",
       text: m.text,
@@ -102,7 +108,7 @@ export async function runAgent(shop: Shop, conversationId: string): Promise<"off
     switch (name) {
       case "show_product": {
         if (!product) return { text: "No product with that id.", isError: true };
-        const card = productCard(product);
+        const card = productCard({ ...product, options: product.variants });
         const r =
           c.channel === "WHATSAPP"
             ? await sendWhatsAppButtons(shop, c.contact.waPhone!, card.body, card.buttons, product.imageUrl)
@@ -112,7 +118,7 @@ export async function runAgent(shop: Shop, conversationId: string): Promise<"off
         return r.status === "failed" ? { text: `Card not delivered: ${r.error}`, isError: true } : { text: "Card sent." };
       }
       case "create_checkout": {
-        const checked = checkCheckout(input, product, c.contact.waPhone);
+        const checked = checkCheckout(input, product && { ...product, variants: product.variants }, c.contact.waPhone);
         if (!checked.ok) return { text: checked.error, isError: true };
         const order = await createOrder(
           shop,
@@ -120,6 +126,7 @@ export async function runAgent(shop: Shop, conversationId: string): Promise<"off
           checked.quantity,
           { name: checked.name, phone: checked.phone, address: checked.address, city: checked.city },
           c.id,
+          checked.variant,
         );
         await db.conversation.update({ where: { id: c.id }, data: { productId: product!.id } });
         return {
@@ -130,8 +137,9 @@ export async function runAgent(shop: Shop, conversationId: string): Promise<"off
         if (!product) return { text: "No product with that id.", isError: true };
         const phone = c.contact.waPhone ?? (input.phone ? normalizeNigerianPhone(String(input.phone)) : null);
         if (!phone) return { text: "Ask for their WhatsApp number first, like 0803 123 4567.", isError: true };
-        await joinWaitlist(shop, product.id, c.contact.name, phone, c.channel === "WHATSAPP" ? "WHATSAPP" : "IG_DM");
-        return { text: `Added to the restock list for ${product.name}. They'll get a WhatsApp message when it's back.` };
+        const variant = product.variants.find(v => v.id === input.variant_id) ?? null;
+        await joinWaitlist(shop, product.id, c.contact.name, phone, c.channel === "WHATSAPP" ? "WHATSAPP" : "IG_DM", variant?.id ?? null);
+        return { text: `Added to the restock list for ${itemName(product.name, variant)}. They'll get a WhatsApp message when it's back.` };
       }
       case "hand_over": {
         await handOver(c.id, String(input.reason ?? "The agent asked for a person"));
