@@ -7,6 +7,7 @@ import { waitingMinutes } from "@/lib/metrics";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { closeLost, closeSale, handBack, reply, takeOver, updateConversation } from "@/app/actions/inbox";
 import { AutoSubmitSelect } from "./AutoSubmitSelect";
+import { can } from "@/lib/permissions";
 import { QuickReplies } from "./QuickReplies";
 import { AiDraft } from "./AiDraft";
 import { aiConfigured } from "@/lib/ai";
@@ -47,7 +48,7 @@ export default async function Chat({ params }: { params: Promise<{ id: string }>
         </div>
         <div className="row">
           <AutoSubmitSelect action={updateConversation} conversationId={c.id} name="repId" value={c.repId ?? ""} label="Rep"
-            options={reps.map(r => ({ value: r.id, label: r.name }))} />
+            options={reps.filter(r => can(user.role, "chats.assign") || r.id === user.id || r.id === c.repId).map(r => ({ value: r.id, label: r.name }))} />
           <AutoSubmitSelect action={updateConversation} conversationId={c.id} name="productId" value={c.productId ?? ""} label="Product"
             options={[{ value: "", label: "No product" }, ...products.map(p => ({ value: p.id, label: p.name }))]} />
         </div>

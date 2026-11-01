@@ -8,6 +8,7 @@ import { createRecipient, paystackConfigured, resolveAccount } from "@/lib/payst
 import { requireAdmin, requireOwner } from "@/lib/session";
 import { normalizeCac } from "@/lib/verification";
 import { savePickup } from "@/lib/services/delivery";
+import { logActivity } from "@/lib/services/activity";
 import type { FormState } from "@/components/ActionForm";
 
 export async function updateShop(_: FormState, data: FormData): Promise<FormState> {
@@ -39,6 +40,7 @@ export async function connectWhatsApp(_: FormState, data: FormData): Promise<For
   const taken = await db.shop.findFirst({ where: { waPhoneNumberId: phoneNumberId, NOT: { id: owner.shopId } } });
   if (taken) return { error: "That WhatsApp number is already connected to another shop" };
   await db.shop.update({ where: { id: owner.shopId }, data: { waPhoneNumberId: phoneNumberId, waTokenEnc: encrypt(token) } });
+  await logActivity(owner, "settings.whatsapp", "Connected WhatsApp", { type: "shop", id: owner.shopId });
   revalidatePath("/app/settings");
   return { ok: "WhatsApp connected. Restock alerts and replies will now send for real." };
 }
@@ -52,6 +54,7 @@ export async function connectInstagram(_: FormState, data: FormData): Promise<Fo
   const taken = await db.shop.findFirst({ where: { igAccountId: accountId, NOT: { id: owner.shopId } } });
   if (taken) return { error: "That Instagram account is already connected to another shop" };
   await db.shop.update({ where: { id: owner.shopId }, data: { igAccountId: accountId, igTokenEnc: encrypt(token) } });
+  await logActivity(owner, "settings.instagram", "Connected Instagram", { type: "shop", id: owner.shopId });
   revalidatePath("/app/settings");
   return { ok: "Instagram connected. New DMs will appear in your inbox." };
 }
@@ -63,6 +66,7 @@ export async function disconnect(data: FormData) {
     where: { id: owner.shopId },
     data: which === "whatsapp" ? { waPhoneNumberId: null, waTokenEnc: null } : { igAccountId: null, igTokenEnc: null },
   });
+  await logActivity(owner, "settings.disconnect", `Disconnected ${which === "whatsapp" ? "WhatsApp" : "Instagram"}`, { type: "shop", id: owner.shopId });
   revalidatePath("/app/settings");
 }
 
@@ -79,6 +83,7 @@ export async function savePayoutAccount(_: FormState, data: FormData): Promise<F
       data: { payoutBankCode: bankCode, payoutBankName: bankName, payoutAccountNumber: accountNumber, payoutAccountName: "Not checked (test mode)", paystackRecipient: null },
     });
     revalidatePath("/app/settings");
+    await logActivity(owner, "settings.payout", `Changed the payout account to ${bankName} ••${accountNumber.slice(-4)}`, { type: "shop", id: owner.shopId });
     return { ok: "Saved in test mode. The name will be checked with your bank once payments go live." };
   }
   const resolved = await resolveAccount(accountNumber, bankCode);
@@ -90,6 +95,7 @@ export async function savePayoutAccount(_: FormState, data: FormData): Promise<F
     where: { id: owner.shopId },
     data: { payoutBankCode: bankCode, payoutBankName: bankName, payoutAccountNumber: accountNumber, payoutAccountName: name, paystackRecipient: recipient.data.recipient_code },
   });
+  await logActivity(owner, "settings.payout", `Changed the payout account to ${name}, ${bankName} ••${accountNumber.slice(-4)}`, { type: "shop", id: owner.shopId });
   revalidatePath("/app/settings");
   return { ok: `Payouts will go to ${name}.` };
 }
@@ -147,6 +153,7 @@ export async function saveAgentSettings(_: FormState, data: FormData): Promise<F
   if (rawPhone && !alertPhone) return { error: "Enter your WhatsApp number for stock alerts like 0803 123 4567" };
   const notes = String(data.get("agentNotes") ?? "").trim().slice(0, 2000) || null;
   await db.shop.update({ where: { id: owner.shopId }, data: { agentMode: mode, agentNotes: notes, alertPhone } });
+  await logActivity(owner, "settings.agent", `Set the AI agent to ${mode === "AUTO" ? "answer buyers" : mode === "DRAFT" ? "drafts only" : "off"}`, { type: "shop", id: owner.shopId });
   revalidatePath("/app", "layout");
   return {
     ok:

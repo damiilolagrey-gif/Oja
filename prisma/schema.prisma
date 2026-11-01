@@ -9,6 +9,7 @@ datasource db {
 
 enum Role {
   OWNER
+  MANAGER // everything except payouts, settings and the team
   REP
 }
 
@@ -114,6 +115,7 @@ model Shop {
   contacts      Contact[]
   conversations Conversation[]
   orders        Order[]
+  activities    Activity[]
 }
 
 model User {
@@ -129,6 +131,7 @@ model User {
 
   conversations Conversation[]
   messages      Message[]
+  activities    Activity[]
 }
 
 model Product {
@@ -283,4 +286,23 @@ model Order {
   @@index([shopId, status])
   @@index([status, releaseAt])
   @@index([conversationId])
+}
+
+/// Every action a staff member takes in the dashboard, so the owner can see who did what and when.
+model Activity {
+  id         String   @id @default(cuid())
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   // e.g. chat.reply, order.ship, product.restock, team.role
+  summary    String   // one line for people: "Replied to Ada on WhatsApp"
+  targetType String?  // conversation | order | product | user | shop
+  targetId   String?
+  device     String?  // "Android phone", "iPhone", "Windows computer"…
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([shopId, userId, createdAt])
 }

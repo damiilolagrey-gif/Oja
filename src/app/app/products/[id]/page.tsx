@@ -7,6 +7,7 @@ import { displayPhone } from "@/lib/phone";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { addToWaitlist, archiveProduct, restockProduct, saveProduct } from "@/app/actions/products";
 import { ProductFields } from "../ProductFields";
+import { can } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     include: { waitlist: { include: { contact: true }, orderBy: { createdAt: "asc" } } },
   });
   if (!p) notFound();
+  const canEdit = can(user.role, "products.edit");
   const waiting = p.waitlist.filter(w => w.status === "WAITING").length;
   const notifyLink = `${process.env.APP_URL ?? ""}/s/${user.shop.slug}/notify/${p.id}?ref=ig-dm`;
 
@@ -32,7 +34,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <p className="muted">{naira(p.priceKobo)} · {p.stock ? `${p.stock} in stock` : "Sold out"} · {waiting} waiting</p>
       </div>
 
-      <section className="panel">
+      {canEdit && <section className="panel">
         <div className="panel-h"><h2>Restock</h2></div>
         <div className="panel-b">
           <ActionForm action={restockProduct}>
@@ -44,7 +46,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             <Submit className="btn wa" pendingText="Sending alerts…">Restock & alert waitlist</Submit>
           </ActionForm>
         </div>
-      </section>
+      </section>}
 
       <section className="panel">
         <div className="panel-h"><h2>Waitlist</h2><span className="pill gold">{waiting} waiting</span></div>
@@ -79,7 +81,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         </div>
       </section>
 
-      <details className="panel">
+      {canEdit && <details className="panel">
         <summary className="panel-h"><h2>Edit product</h2><span className="btn">Edit</span></summary>
         <div className="panel-b">
           <ActionForm action={saveProduct}>
@@ -92,7 +94,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             <button className="btn ghost">Remove from shop</button>
           </form>
         </div>
-      </details>
+      </details>}
     </>
   );
 }

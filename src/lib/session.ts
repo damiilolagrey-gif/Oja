@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { db } from "./db";
+import { can, type Permission } from "./permissions";
 
 const COOKIE = "oja_session";
 const MAX_AGE = 60 * 60 * 24 * 30;
@@ -54,6 +55,13 @@ export async function requireUser() {
 export async function requireOwner() {
   const user = await requireUser();
   if (user.role !== "OWNER") redirect("/app");
+  return user;
+}
+
+/** Signs in any staff member who has this permission (see lib/permissions.ts); others go back to Home. */
+export async function requirePermission(p: Permission) {
+  const user = await requireUser();
+  if (!can(user.role, p)) redirect("/app");
   return user;
 }
 

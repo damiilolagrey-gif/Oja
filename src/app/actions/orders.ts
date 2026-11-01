@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { normalizeNigerianPhone } from "@/lib/phone";
-import { requireAdmin, requireUser } from "@/lib/session";
+import { requireAdmin, requirePermission } from "@/lib/session";
+import { logActivity } from "@/lib/services/activity";
+import { naira } from "@/lib/format";
 import { can, dispatchOverdue, DISPUTE_REASONS, escrowConfig } from "@/lib/escrow";
 import { createOrder, markDelivered, markShipped, refundOrder, release, reportProblem, startPayment } from "@/lib/services/orders";
 import { book, quote } from "@/lib/services/delivery";
@@ -87,8 +89,12 @@ export async function buyerCancel(data: FormData) {
 // ---------- Shop ----------
 
 async function shopOrder(id: string) {
-  const user = await requireUser();
+  const user = await requirePermission("orders");
   return db.order.findFirst({ where: { id, shopId: user.shopId } });
+}
+
+async function logOrder(action: string, summary: string, orderId: string) {
+  await logActivity(await requirePermission("orders"), action, summary, { type: "order", id: orderId });
 }
 
 export async function shipOrder(_: FormState, data: FormData): Promise<FormState> {
@@ -97,6 +103,7 @@ export async function shipOrder(_: FormState, data: FormData): Promise<FormState
   const courier = str(data, "courier");
   if (!courier) return { error: "Say who is delivering it, for example GIG Logistics or your own rider." };
   if (!(await markShipped(o.id, courier, str(data, "tracking")))) return { error: "This order can't be marked dispatched now." };
+  await logOrder("order.ship", `Marked ${o.itemName} for ${o.buyerName} dispatched with ${courier}`, o.id);
   revalidatePath("/app/orders", "layout");
   return { ok: "Marked dispatched. The buyer can follow it from their tracking link." };
 }
@@ -108,7 +115,7 @@ export async function quoteDelivery(_: FormState, data: FormData): Promise<FormS
   if (!(size in PACKAGE_SIZES)) return { error: "Pick a package size." };
   const weightKg = Number(data.get("weight"));
   if (!(weightKg > 0 && weightKg <= 50)) return { error: "Enter the weight in kg, for example 1 or 2.5." };
-  const user = await requireUser();
+  const user = await requirePermission("orders");
   const r = await quote(o, user.shop, { size, weightKg });
   revalidatePath(`/app/orders/${o.id}`);
   return r;
@@ -118,13 +125,14 @@ export async function bookDelivery(_: FormState, data: FormData): Promise<FormSt
   const o = await shopOrder(str(data, "id"));
   if (!o) return { error: "Order not found." };
   const r = await book(o, str(data, "choice"));
+  if (r && "ok" in r) await logOrder("order.book_rider", `Booked a rider for ${o.itemName} to ${o.buyerName}`, o.id);
   revalidatePath("/app/orders", "layout");
   return r;
 }
 
 export async function deliverOrder(data: FormData) {
   const o = await shopOrder(str(data, "id"));
-  if (o) await markDelivered(o.id);
+  if (o && (await markDelivered(o.id))) await logOrder("order.deliver", `Marked ${o.itemName} for ${o.buyerName} (${naira(o.totalKobo)}) delivered`, o.id);
   revalidatePath("/app/orders", "layout");
 }
 
