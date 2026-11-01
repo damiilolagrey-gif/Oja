@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { isAdminEmail, requireUser } from "@/lib/session";
 import { TabBar } from "@/components/TabBar";
-import { ROLE_LABEL } from "@/lib/permissions";
+import { can, ROLE_LABEL } from "@/lib/permissions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {user.name} · {ROLE_LABEL[user.role]}
         </div>
       </header>
-      <TabBar waiting={waiting} toShip={toShip} admin={isAdminEmail(user.email)} />
+      <TabBar waiting={waiting} toShip={toShip} admin={isAdminEmail(user.email)} studio={can(user.role, "studio")} />
       <main className="content">{children}</main>
     </div>
   );

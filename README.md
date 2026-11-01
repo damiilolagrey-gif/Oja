@@ -92,6 +92,13 @@ restocking an option alerts only the buyers who wanted it, or any option. When o
 left, the owner gets a WhatsApp alert naming it. Spreadsheet upload can change the price of a product with options but
 not its stock, which is set per option.
 
+## Creative studio
+
+Studio (owners and managers) makes ads for any product:
+- **Captions:** three sets with different angles, each with an Instagram caption and hashtags, Facebook primary text and headline, TikTok ad text (no emoji), Google headlines and descriptions, and a WhatsApp Status. Every field is cut to its platform's limits. With ANTHROPIC_API_KEY set, the AI writes them from the product's real price, stock and options, in the shop's brand voice. Without it, or if the AI fails, built-in templates fill in. Sets are saved and can be edited, copied or deleted.
+- **Images:** drawn in the browser from the product photo, price and an "Order on WhatsApp" button, in square, portrait, story and landscape sizes, then downloaded as a PNG. The photo is fetched through `/app/studio/photo/[id]`, which serves only the shop's own product photos over https and refuses private network addresses.
+- **Order link:** every ad points to `wa.me/<shop WhatsApp number>` with the product typed in, so the AI sales agent picks up the chat. Without a WhatsApp number it points to the shop page.
+
 ## AI drafts
 
 Set `ANTHROPIC_API_KEY`. Drafts use Claude Opus 5.5 at low effort (short chat replies don't need more), with server-side refusal fallback turned on. Each draft sends the last 20 messages of that chat and up to 40 products. Without a key the button is hidden.

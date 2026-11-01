@@ -9,14 +9,15 @@ export type Permission =
   | "products.edit" // add and edit products, prices and stock, restock
   | "waitlist.add" // add a buyer to a restock list by hand
   | "reports" // see everyone's scorecard and the activity log
+  | "studio" // creative studio: write ad copy, make ad images
   | "team" // invite, remove and change roles of staff
   | "settings"; // shop settings, WhatsApp/Instagram, AI agent, payouts
 
-const ALL: Permission[] = ["chats", "chats.assign", "orders", "products.edit", "waitlist.add", "reports", "team", "settings"];
+const ALL: Permission[] = ["chats", "chats.assign", "orders", "products.edit", "waitlist.add", "reports", "studio", "team", "settings"];
 
 const MATRIX: Record<Role, Permission[]> = {
   OWNER: ALL,
-  MANAGER: ["chats", "chats.assign", "orders", "products.edit", "waitlist.add", "reports"],
+  MANAGER: ["chats", "chats.assign", "orders", "products.edit", "waitlist.add", "reports", "studio"],
   REP: ["chats", "orders", "waitlist.add"],
 };
 
@@ -25,7 +26,7 @@ export const can = (role: Role, p: Permission) => MATRIX[role].includes(p);
 export const ROLE_LABEL: Record<Role, string> = { OWNER: "Owner", MANAGER: "Manager", REP: "Sales rep" };
 
 export const ROLE_HELP: Record<Exclude<Role, "OWNER">, string> = {
-  MANAGER: "Chats, orders, products and stock, and everyone's activity. No payouts, settings or team changes.",
+  MANAGER: "Chats, orders, products and stock, ads in the studio, and everyone's activity. No payouts, settings or team changes.",
   REP: "Their chats, orders and restock lists. Can't change prices or stock.",
 };
 

@@ -183,3 +183,10 @@ code, .code { font-family: var(--mono); font-size: 12.5px; background: var(--bg)
 .courier:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .own-rider > summary { cursor: pointer; color: var(--muted); }
 .own-rider[open] > summary { margin-bottom: 12px; }
+
+/* Creative studio */
+.studio-canvas { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; place-items: center; }
+.studio-canvas canvas { max-width: 100%; max-height: 520px; width: auto; height: auto; border-radius: 6px; box-shadow: 0 1px 8px rgba(0,0,0,.12); }
+.studio-block { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; }
+.studio-text { margin: 0; white-space: pre-wrap; font-size: 14px; }
+.btn.small { min-height: 32px; padding: 4px 10px; font-size: 13px; }
