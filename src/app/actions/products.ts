@@ -11,6 +11,7 @@ import { logActivity } from "@/lib/services/activity";
 import { joinWaitlist, restock } from "@/lib/services/waitlist";
 import { checkStock } from "@/lib/services/stock";
 import type { FormState } from "@/components/ActionForm";
+import { buyers, describePlan, describeRow, planImport } from "@/lib/catalogue-import";
 
 const productSchema = z.object({
   name: z.string().trim().min(2, "Give the product a name"),
@@ -95,4 +96,70 @@ export async function archiveProduct(data: FormData) {
   await logActivity(user, "product.archive", `Removed ${p.name} from the shop`, { type: "product", id: p.id });
   revalidatePath("/app/products");
   redirect("/app/products");
+}
+
+export type ImportState =
+  | {
+      error?: string;
+      ok?: string;
+      preview?: { summary: string; text: string; rows: { line: number; name: string; what: string }[]; errors: { line: number; message: string }[] };
+    }
+  | undefined;
+
+async function readSheet(data: FormData): Promise<string | { error: string }> {
+  const file = data.get("file");
+  if (file instanceof File && file.size > 0) {
+    if (file.size > 2_000_000) return { error: "That file is over 2 MB. Upload up to 500 products at a time." };
+    if (/\.(xlsx|xls|numbers)$/i.test(file.name)) {
+      return { error: "Save the sheet as CSV first (in Excel: File, Save As, CSV), or copy the cells and paste them in the box." };
+    }
+    return file.text();
+  }
+  return String(data.get("text") ?? "");
+}
+
+/** Bulk upload in two steps: "check" shows what will change; "import" re-checks against live stock and applies it. */
+export async function importCatalogue(_: ImportState, data: FormData): Promise<ImportState> {
+  const user = await requirePermission("products.edit");
+  const text = await readSheet(data);
+  if (typeof text !== "string") return text;
+  if (!text.trim()) return { error: "Choose a CSV file or paste your sheet first." };
+
+  const existing = await db.product.findMany({
+    where: { shopId: user.shopId, archived: false },
+    include: { _count: { select: { waitlist: { where: { status: "WAITING" } } } } },
+  });
+  const plan = planImport(text, existing.map(p => ({ ...p, waiting: p._count.waitlist })));
+  const preview = {
+    summary: describePlan(plan),
+    text,
+    rows: plan.rows.map(r => ({ line: r.line, name: r.name, what: describeRow(r) })),
+    errors: plan.errors,
+  };
+  if (data.get("mode") !== "import" || plan.errors.length) return { preview };
+
+  let alerted = 0;
+  const changed = plan.rows.filter(r => r.kind !== "same");
+  for (const r of changed) {
+    if (r.kind === "add") {
+      const p = await db.product.create({
+        data: { shopId: user.shopId, name: r.name, priceKobo: r.priceKobo, stock: r.stock, imageUrl: r.imageUrl, description: r.description, lowStockAt: r.lowStockAt },
+      });
+      await checkStock(user.shop, p.id);
+    } else if (r.kind === "update") {
+      if (Object.keys(r.changes).length) await db.product.update({ where: { id: r.id, shopId: user.shopId }, data: r.changes });
+      if (r.stockTo > r.stockFrom) {
+        // Through restock, so buyers on the waitlist get their WhatsApp message.
+        alerted += (await restock(user.shop, r.id, r.stockTo - r.stockFrom)).alerted;
+      } else {
+        if (r.stockTo < r.stockFrom) await db.product.update({ where: { id: r.id, shopId: user.shopId }, data: { stock: r.stockTo } });
+        await checkStock(user.shop, r.id);
+      }
+    }
+  }
+  const adds = changed.filter(r => r.kind === "add").length;
+  const updates = changed.length - adds;
+  await logActivity(user, "product.import", `Uploaded a sheet: ${adds} added, ${updates} updated${alerted ? `, ${buyers(alerted)} alerted` : ""}`);
+  revalidatePath("/app", "layout");
+  return { ok: `Done. ${adds} added, ${updates} updated${alerted ? `, and ${buyers(alerted)} messaged on WhatsApp` : ""}.` };
 }
