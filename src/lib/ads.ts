@@ -6,10 +6,19 @@
 import type { StudioProduct, StudioShop } from "./creative";
 import { naira, toKobo } from "./format";
 
-export type Platform = "META" | "GOOGLE" | "TIKTOK";
+export type Platform = "META" | "GOOGLE" | "TIKTOK" | "SNAPCHAT" | "X" | "OPERA" | "WHATSAPP_STATUS" | "INFLUENCER";
 export type CampaignState = "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
 
-export const PLATFORMS: Record<Platform, { label: string; short: string; places: string; needs: string[] }> = {
+/**
+ * How a campaign gets booked: "api" platforms let an app book ads for the vendor once connected, "apply" ones
+ * do too but review each app first, and "self" ones are booked by the vendor (or are free), with our tracked
+ * link so the results still show here.
+ */
+export type Booking = "api" | "apply" | "self";
+
+type PlatformInfo = { label: string; short: string; places: string; needs: string[]; booking: Booking; minDailyKobo: number; copy: "meta" | "google" | "short" | "status" | "caption" };
+
+export const PLATFORMS: Record<Platform, PlatformInfo> = {
   META: {
     label: "Facebook & Instagram",
     short: "Meta",
@@ -19,6 +28,9 @@ export const PLATFORMS: Record<Platform, { label: string; short: string; places:
       "An ad account in that business, with your own card added for payment",
       "Your Facebook Page and Instagram account added to the business",
     ],
+    booking: "api",
+    minDailyKobo: 1_000_00,
+    copy: "meta",
   },
   GOOGLE: {
     label: "Google",
@@ -28,6 +40,9 @@ export const PLATFORMS: Record<Platform, { label: string; short: string; places:
       "A Google Ads account (ads.google.com) with your own card added for payment",
       "Advertiser verification, which Google asks for after your first ads",
     ],
+    booking: "api",
+    minDailyKobo: 1_000_00,
+    copy: "google",
   },
   TIKTOK: {
     label: "TikTok",
@@ -37,6 +52,54 @@ export const PLATFORMS: Record<Platform, { label: string; short: string; places:
       "A TikTok Ads Manager account (ads.tiktok.com) with your own card added for payment",
       "Your business details approved by TikTok",
     ],
+    booking: "api",
+    minDailyKobo: 1_000_00,
+    copy: "short",
+  },
+  SNAPCHAT: {
+    label: "Snapchat",
+    short: "Snapchat",
+    places: "Snapchat Stories, Spotlight and Discover, popular with younger buyers",
+    needs: ["A Snapchat Ads Manager account (ads.snapchat.com) with your own card added for payment"],
+    booking: "api",
+    minDailyKobo: 1_000_00,
+    copy: "short",
+  },
+  X: {
+    label: "X (Twitter)",
+    short: "X",
+    places: "the X timeline and search, where a lot of Nigerian conversation happens",
+    needs: ["An X Ads account (ads.x.com) with your own card added for payment", "X approving Oja's app for ad booking (X reviews every app)"],
+    booking: "apply",
+    minDailyKobo: 1_000_00,
+    copy: "short",
+  },
+  OPERA: {
+    label: "Opera News & Opera Mini",
+    short: "Opera",
+    places: "Opera's news feed and browser, used by millions of Nigerians on Android",
+    needs: ["An Opera Ad Manager account (opera.com/ads), booked by you"],
+    booking: "self",
+    minDailyKobo: 1_000_00,
+    copy: "meta",
+  },
+  WHATSAPP_STATUS: {
+    label: "WhatsApp Status & Channels",
+    short: "WhatsApp Status",
+    places: "your Status, your WhatsApp Channel, and resellers or friends who share your Status",
+    needs: [],
+    booking: "self",
+    minDailyKobo: 0,
+    copy: "status",
+  },
+  INFLUENCER: {
+    label: "Influencer, blog or group post",
+    short: "Influencer",
+    places: "an influencer's page, a blog, or a Telegram or WhatsApp group you pay to post in",
+    needs: [],
+    booking: "self",
+    minDailyKobo: 0,
+    copy: "caption",
   },
 };
 
@@ -49,7 +112,7 @@ export const NG_STATES = [
   "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara",
 ] as const;
 
-export const BUDGET = { minKobo: 1_000_00, maxKobo: 5_000_000_00 } as const;
+export const BUDGET = { minKobo: 1_000_00, maxKobo: 5_000_000_00 } as const; // minKobo is the most platforms' floor; see PLATFORMS
 export const DAYS = { min: 1, max: 60 } as const;
 export const AGES = { min: 18, max: 65 } as const;
 
@@ -114,9 +177,10 @@ export function validateCampaign(raw: {
   if (name.length < 2) return { ok: false, error: "Give the campaign a name, like \"Adire December\"." };
   if (name.length > 80) return { ok: false, error: "Keep the name under 80 characters." };
 
-  const dailyBudgetKobo = toKobo(raw.dailyBudget);
-  if (!Number.isFinite(dailyBudgetKobo) || dailyBudgetKobo < BUDGET.minKobo)
-    return { ok: false, error: `The daily budget must be at least ${naira(BUDGET.minKobo)}. Ad platforms barely show ads below that.` };
+  const min = PLATFORMS[raw.platform as Platform].minDailyKobo;
+  const dailyBudgetKobo = toKobo(raw.dailyBudget || (min ? "" : "0"));
+  if (!Number.isFinite(dailyBudgetKobo) || dailyBudgetKobo < min)
+    return { ok: false, error: `The daily budget must be at least ${naira(min)}. Ad platforms barely show ads below that.` };
   if (dailyBudgetKobo > BUDGET.maxKobo) return { ok: false, error: `The daily budget can be up to ${naira(BUDGET.maxKobo)}.` };
 
   const days = Number(raw.days);

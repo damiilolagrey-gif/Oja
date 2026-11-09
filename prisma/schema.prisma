@@ -54,6 +54,11 @@ enum AdPlatform {
   META
   GOOGLE
   TIKTOK
+  SNAPCHAT
+  X
+  OPERA
+  WHATSAPP_STATUS // the vendor's own Status and Channel; free
+  INFLUENCER // a paid post on someone else's page, blog or group
 }
 
 enum CampaignStatus {

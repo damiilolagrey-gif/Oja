@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUDGET, CODE_LENGTH, NEXT, campaignLink, newCode, parseRef, placesLine, results, validateCampaign, verdict } from "../ads";
+import { BUDGET, CODE_LENGTH, NEXT, PLATFORMS, campaignLink, newCode, parseRef, placesLine, results, validateCampaign, verdict } from "../ads";
 import { can } from "../permissions";
 
 const shop = { name: "Asa Wears", slug: "asa-wears", whatsappNumber: "2348031234567", igHandle: "asawears" };
@@ -58,7 +58,7 @@ describe("validateCampaign", () => {
   });
 
   it.each([
-    [{ platform: "SNAPCHAT" }, "Pick where"],
+    [{ platform: "MYSPACE" }, "Pick where"],
     [{ name: " " }, "name"],
     [{ dailyBudget: "500" }, "at least ₦1,000"],
     [{ dailyBudget: "abc" }, "at least"],
@@ -80,6 +80,24 @@ describe("validateCampaign", () => {
     expect(r.ok && r.value.locations).toEqual(["Lagos"]);
     expect(placesLine([])).toBe("All of Nigeria");
     expect(placesLine(["Lagos", "Oyo", "Ogun", "Rivers", "Edo"])).toBe("Lagos, Oyo, Ogun and 2 more");
+  });
+});
+
+describe("more channels", () => {
+  it("lets free channels run without a budget", () => {
+    const r = validateCampaign({ ...good, platform: "WHATSAPP_STATUS", dailyBudget: "" });
+    expect(r.ok && r.value.dailyBudgetKobo).toBe(0);
+  });
+
+  it("keeps the minimum for paid ad platforms", () => {
+    for (const platform of ["SNAPCHAT", "X", "OPERA"]) expect(validateCampaign({ ...good, platform, dailyBudget: "" }).ok).toBe(false);
+  });
+
+  it("says how each channel is booked", () => {
+    expect(PLATFORMS.SNAPCHAT.booking).toBe("api");
+    expect(PLATFORMS.X.booking).toBe("apply");
+    expect(PLATFORMS.OPERA.booking).toBe("self");
+    expect(PLATFORMS.INFLUENCER.minDailyKobo).toBe(0);
   });
 });
 
