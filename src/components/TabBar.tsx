@@ -15,11 +15,11 @@ const icons: Record<string, React.ReactNode> = {
 };
 
 const tabs = [
+  { href: "/app/studio", label: "Studio", icon: "studio" },
   { href: "/app", label: "Home", icon: "home" },
   { href: "/app/products", label: "Products", icon: "products" },
   { href: "/app/orders", label: "Orders", icon: "orders" },
   { href: "/app/inbox", label: "Inbox", icon: "inbox" },
-  { href: "/app/studio", label: "Ads", icon: "studio" },
   { href: "/app/team", label: "Team", icon: "team" },
   { href: "/app/settings", label: "Settings", icon: "settings" },
 ];

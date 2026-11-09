@@ -22,7 +22,11 @@ export default async function AdAccounts() {
         </p>
       </div>
 
-      {PLATFORM_KEYS.map(k => {
+      <p className="small muted">
+        Opera, WhatsApp Status and influencer posts don&apos;t need connecting: you post or book them yourself with the campaign&apos;s tracked link, and the chats and sales still show here.
+      </p>
+
+      {PLATFORM_KEYS.filter(k => PLATFORMS[k].booking !== "self").map(k => {
         const p = PLATFORMS[k];
         const a = accounts.find(x => x.platform === k);
         const connected = a?.status === "connected";
@@ -41,7 +45,7 @@ export default async function AdAccounts() {
                 </ol>
               </div>
               <button className="btn" disabled aria-describedby={`why-${k}`}>Connect {p.short}</button>
-              <p id={`why-${k}`} className="hint">Connecting opens once Oja&apos;s own {p.short} app is approved. Until then, use the tracked link on each campaign.</p>
+              <p id={`why-${k}`} className="hint">Connecting opens once Oja&apos;s own {p.short} app is approved{p.booking === "apply" ? ` (${p.short} reviews every app that books ads)` : ""}. Until then, use the tracked link on each campaign.</p>
             </div>
           </section>
         );

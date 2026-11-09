@@ -54,6 +54,11 @@ enum AdPlatform {
   META
   GOOGLE
   TIKTOK
+  SNAPCHAT
+  X
+  OPERA
+  WHATSAPP_STATUS // the vendor's own Status and Channel; free
+  INFLUENCER // a paid post on someone else's page, blog or group
 }
 
 enum CampaignStatus {
@@ -196,6 +201,8 @@ model AdCreative {
   productId   String?
   product     Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
   angle       String
+  prompt      String? // what the vendor typed in the studio, e.g. "Owambe ad, gold vibe"
+  design      Json? // Design: style, headline, colours and what the ad shows; null for older copy-only sets
   copy        Json // AdCopy: instagram, facebook, tiktok, google, whatsappStatus
   source      String // "ai" | "template"
   createdById String?

@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useState } from "react";
 import { createCampaign } from "@/app/actions/ads";
-import { AGES, BUDGET, DAYS, NG_STATES, PLATFORMS, PLATFORM_KEYS, type Platform } from "@/lib/ads";
+import { AGES, DAYS, NG_STATES, PLATFORMS, PLATFORM_KEYS, type Platform } from "@/lib/ads";
 import { naira, toKobo } from "@/lib/format";
 
 type Props = {
@@ -24,7 +24,8 @@ export function CampaignForm({ products, creatives, startProduct, startCreative 
   const [days, setDays] = useState("7");
   const mine = creatives.filter(c => c.productId === productId);
   const product = products.find(p => p.id === productId);
-  const dailyKobo = toKobo(daily);
+  const dailyKobo = toKobo(daily || "0");
+  const min = PLATFORMS[platform].minDailyKobo;
   const total = Number.isFinite(dailyKobo) && Number(days) > 0 ? dailyKobo * Number(days) : null;
 
   return (
@@ -39,15 +40,20 @@ export function CampaignForm({ products, creatives, startProduct, startCreative 
     >
       <section className="panel panel-b">
         <h2>Where should it run?</h2>
-        <div className="choice">
-          {PLATFORM_KEYS.map(k => (
-            <label key={k}>
-              <input type="radio" name="platform" value={k} checked={platform === k} onChange={() => setPlatform(k)} />
-              <b>{PLATFORMS[k].label}</b>
-              <span className="hint">{PLATFORMS[k].places}</span>
-            </label>
-          ))}
-        </div>
+        {([["api", "We book it for you once your account is connected"], ["self", "You post or book it, we track the results"]] as const).map(([group, title]) => (
+          <div key={group} className="stack" style={{ gap: 8 }}>
+            <b className="small muted">{title}</b>
+            <div className="choice">
+              {PLATFORM_KEYS.filter(k => (group === "self") === (PLATFORMS[k].booking === "self")).map(k => (
+                <label key={k}>
+                  <input type="radio" name="platform" value={k} checked={platform === k} onChange={() => setPlatform(k)} />
+                  <b>{PLATFORMS[k].label}</b>
+                  <span className="hint">{PLATFORMS[k].places}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       <section className="panel panel-b">
@@ -68,15 +74,15 @@ export function CampaignForm({ products, creatives, startProduct, startCreative 
           </label>
         )}
         <label className="field">Campaign name
-          <input className="input" name="name" required maxLength={80} defaultValue={product ? `${product.name}: ${new Date().toLocaleString("en-NG", { month: "long" })}` : ""} key={productId} placeholder="Owambe season" />
+          <input className="input" name="name" required maxLength={80} defaultValue={`${product ? product.name : "Whole shop"}: ${new Date().toLocaleString("en-NG", { month: "long" })}`} key={productId} placeholder="Owambe season" />
         </label>
       </section>
 
       <section className="panel panel-b">
         <h2>Budget</h2>
         <div className="row">
-          <label className="field" style={{ flex: 1 }}>Each day (₦)
-            <input className="input num" name="dailyBudget" inputMode="numeric" value={daily} onChange={e => setDaily(e.target.value)} required />
+          <label className="field" style={{ flex: 1 }}>{min ? "Each day (₦)" : "Each day (₦, optional)"}
+            <input className="input num" name="dailyBudget" inputMode="numeric" value={daily} onChange={e => setDaily(e.target.value)} required={min > 0} placeholder={min ? "" : "0"} />
           </label>
           <label className="field" style={{ width: 120 }}>Days
             <input className="input num" name="days" type="number" min={DAYS.min} max={DAYS.max} value={days} onChange={e => setDays(e.target.value)} required />
@@ -88,8 +94,8 @@ export function CampaignForm({ products, creatives, startProduct, startCreative 
           ))}
         </div>
         <p className="small num">
-          {total !== null ? <>Up to <b>{naira(total)}</b> in total, paid by you to {PLATFORMS[platform].short} with your own card.</> : "Enter a daily amount and number of days."}
-          {Number.isFinite(dailyKobo) && dailyKobo < BUDGET.minKobo && <span className="error"> The minimum is {naira(BUDGET.minKobo)} a day.</span>}
+          {platform === "WHATSAPP_STATUS" ? "Posting to your Status is free. Add a budget only if you pay resellers to share it." : platform === "INFLUENCER" ? <>Put what you&apos;re paying them per day{total ? <>, up to <b>{naira(total)}</b> in total</> : ""}.</> : total !== null ? <>Up to <b>{naira(total)}</b> in total, paid by you to {PLATFORMS[platform].short} with your own card.</> : "Enter a daily amount and number of days."}
+          {Number.isFinite(dailyKobo) && dailyKobo < min && <span className="error"> The minimum is {naira(min)} a day.</span>}
         </p>
       </section>
 

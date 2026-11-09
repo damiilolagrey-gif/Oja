@@ -8,22 +8,22 @@ export default async function Landing() {
     <main className="landing">
       <span className="brand">Oja</span>
       <div className="stack">
-        <h1>Stop losing buyers to &quot;sold out&quot;.</h1>
+        <h1>Make ads that sell. Run them everywhere your buyers are.</h1>
         <p className="muted">
-          For vendors who sell on Instagram and WhatsApp. When an item sells out, buyers join a waitlist. When you
-          restock, Oja sends them a WhatsApp message and the sales come back to you.
+          Type what you want, like &quot;Owambe ad for my adire, gold vibe&quot;, and get finished ad images, short videos and captions in
+          seconds. Run them on Instagram, Facebook, TikTok, Google and more, and see which ad brought each WhatsApp order.
         </p>
       </div>
       <div className="row">
-        <Link href="/signup" className="btn primary">Create your shop free</Link>
+        <Link href="/signup" className="btn primary">Make your first ad free</Link>
         <Link href="/login" className="btn">Log in</Link>
       </div>
       <ul className="muted">
-        <li><b>SafePay link</b>: buyers pay into escrow, so they trust you on the first order. You&apos;re paid when they confirm delivery</li>
-        <li><b>Waitlists</b> from Instagram DMs, comments and your shop page</li>
-        <li><b>Restock alerts</b> on WhatsApp, with YES to reserve</li>
-        <li><b>One inbox</b> for Instagram DMs and WhatsApp chats</li>
-        <li><b>Rep scorecard</b>: who replies fast, who misses chats, who sells</li>
+        <li><b>Ad studio</b>: images in every size, a 6-second video and captions for every platform, from one sentence</li>
+        <li><b>Run campaigns</b> with a budget and audience, paid with your own card to each platform</li>
+        <li><b>Know what sells</b>: every ad has its own WhatsApp link, so each chat and order is traced back to it</li>
+        <li><b>Sell in the chat</b>: an AI assistant answers buyers, takes payment safely and books delivery</li>
+        <li><b>Team and stock</b>: sales reps, activity log, restock alerts</li>
       </ul>
     </main>
   );

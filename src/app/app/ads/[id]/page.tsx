@@ -15,20 +15,27 @@ export const dynamic = "force-dynamic";
 
 const MOVE_LABEL = { start: "Start campaign", pause: "Pause", resume: "Resume", end: "End campaign" } as const;
 
-/** The copy that fits the chosen platform, in the order the platform's ad form asks for it. */
+/** The copy that fits the chosen platform, in the order its ad form asks for it. */
 function copyFor(platform: Platform, c: AdCopy): { title: string; text: string }[] {
-  if (platform === "META")
-    return [
-      { title: "Primary text", text: c.facebook.primaryText },
-      { title: "Headline", text: c.facebook.headline },
-      { title: "Instagram caption", text: `${c.instagram.caption}\n\n${c.instagram.hashtags.join(" ")}`.trim() },
-    ];
-  if (platform === "GOOGLE")
-    return [
-      { title: "Headlines", text: c.google.headlines.join("\n") },
-      { title: "Descriptions", text: c.google.descriptions.join("\n") },
-    ];
-  return [{ title: "Ad text", text: c.tiktok.adText }];
+  switch (PLATFORMS[platform].copy) {
+    case "meta":
+      return [
+        { title: "Primary text", text: c.facebook.primaryText },
+        { title: "Headline", text: c.facebook.headline },
+        { title: "Instagram caption", text: `${c.instagram.caption}\n\n${c.instagram.hashtags.join(" ")}`.trim() },
+      ];
+    case "google":
+      return [
+        { title: "Headlines", text: c.google.headlines.join("\n") },
+        { title: "Descriptions", text: c.google.descriptions.join("\n") },
+      ];
+    case "status":
+      return [{ title: "Status text", text: c.whatsappStatus }];
+    case "caption":
+      return [{ title: "Post caption", text: `${c.instagram.caption}\n\n${c.instagram.hashtags.join(" ")}`.trim() }];
+    default:
+      return [{ title: "Ad text", text: c.tiktok.adText }];
+  }
 }
 
 const HOW: Record<Platform, string[]> = {
@@ -38,12 +45,32 @@ const HOW: Record<Platform, string[]> = {
     "Set the same daily budget, days, states and ages as here, and pay with your card.",
   ],
   GOOGLE: [
-    "In Google Ads, start a Search campaign and paste the tracked link as the final URL.",
+    "In Google Ads, start a Search, YouTube or Display campaign and paste the tracked link as the final URL.",
     "Paste the headlines and descriptions below, then set the same budget and locations.",
   ],
   TIKTOK: [
     "In TikTok Ads Manager (or Promote on a video), set the destination to the tracked link.",
     "Paste the ad text below and set the same budget, days, locations and ages.",
+  ],
+  SNAPCHAT: [
+    "In Snapchat Ads Manager, create a Snap Ad with the video or Story-size image from the studio.",
+    "Set the attachment to the tracked link, paste the ad text and set the same budget and audience.",
+  ],
+  X: [
+    "In X Ads, create a campaign with the image or video from the studio and paste the tracked link as the website.",
+    "Paste the ad text below and set the same budget, days and locations.",
+  ],
+  OPERA: [
+    "In Opera Ad Manager (opera.com/ads), create a campaign for Nigeria with the square or landscape image.",
+    "Use the tracked link as the landing page, paste the headline and text, and set the same budget.",
+  ],
+  WHATSAPP_STATUS: [
+    "Post the story-size image or video from the studio to your WhatsApp Status and Channel, with the text below.",
+    "Send the image and the tracked link to resellers and friends so they can post it too. Every chat from the link is counted.",
+  ],
+  INFLUENCER: [
+    "Send the influencer or group admin the image or video from the studio, the caption below and the tracked link.",
+    "Ask them to put the link in the post or their bio. Enter what you paid them as the spend so you see the cost per order.",
   ],
 };
 
@@ -81,7 +108,7 @@ export default async function Campaign({ params }: { params: Promise<{ id: strin
           <span className={`pill ${state === "ACTIVE" ? "good" : state === "PAUSED" ? "gold" : "plain"}`}>{STATUS_LABEL[state]}</span>
         </div>
         <p className="muted small num">
-          {PLATFORMS[platform].label} · {naira(c.dailyBudgetKobo)} a day for {c.days} {c.days === 1 ? "day" : "days"} (up to {naira(totalBudget(c.dailyBudgetKobo, c.days))})
+          {PLATFORMS[platform].label} · {c.dailyBudgetKobo ? <>{naira(c.dailyBudgetKobo)} a day for {c.days} {c.days === 1 ? "day" : "days"} (up to {naira(totalBudget(c.dailyBudgetKobo, c.days))})</> : <>{c.days} {c.days === 1 ? "day" : "days"}</>}
           {" · "}{placesLine(c.locations)} · ages {c.ageMin} to {c.ageMax}
           {dayOf && state !== "ENDED" ? ` · day ${dayOf} of ${c.days}` : ""}
         </p>
@@ -98,7 +125,7 @@ export default async function Campaign({ params }: { params: Promise<{ id: strin
           ))}
         </div>
       )}
-      {!c.live && state !== "ENDED" && (
+      {!c.live && state !== "ENDED" && PLATFORMS[platform].booking !== "self" && (
         <p className="notice small">
           Test mode: {PLATFORMS[platform].short} isn&apos;t connected, so {state === "DRAFT" ? "starting" : "this"} doesn&apos;t put the ad live by itself. Run it with the tracked link below and
           we&apos;ll count every chat and sale it brings. <Link href="/app/ads/accounts">Connect your account</Link>

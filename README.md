@@ -92,7 +92,21 @@ restocking an option alerts only the buyers who wanted it, or any option. When o
 left, the owner gets a WhatsApp alert naming it. Spreadsheet upload can change the price of a product with options but
 not its stock, which is set per option.
 
-## Creative studio
+## Ad studio (the home screen)
+
+Owners and managers land in **Studio** after logging in. They describe the ad they want ("Owambe ad for my adire, gold vibe"), pick a product or type an item and price that isn't listed yet, and get three finished ads:
+
+- **Design**: one of five looks (bold, full photo, side by side, clean, celebration) with a headline, a second line, a button, an optional sticker and colours. It is drawn in the browser in four sizes, downloadable as a PNG or a 6-second video (MP4 where the browser supports it, otherwise WebM).
+- **Captions** for Instagram, Facebook, TikTok, Google and WhatsApp Status.
+- Every ad links to a WhatsApp chat with the shop. Ads for listed products can be run as a tracked campaign.
+
+With `ANTHROPIC_API_KEY` set, the AI picks the designs and writes the copy (`writeConcepts`). Without it, ready-made designs follow the prompt's theme (owambe, December, Sallah, gifts, new in, back in stock and more). Either way `fitDesign` keeps text readable and drops stickers that promise discounts or "free" offers the vendor never mentioned, or stock numbers that aren't true.
+
+## Ad channels
+
+Campaigns can run on Facebook & Instagram, Google, TikTok, Snapchat and X. Once their accounts are connected these can be booked from the app (X reviews every app first). Campaigns can also run on Opera News, WhatsApp Status & Channels, and influencer, blog or group posts. Those the vendor books or posts themselves, with the campaign's tracked link, so results still show. WhatsApp Status and influencer campaigns don't need a budget.
+
+## Creative studio (captions by product)
 
 Studio (owners and managers) makes ads for any product:
 - **Captions:** three sets with different angles, each with an Instagram caption and hashtags, Facebook primary text and headline, TikTok ad text (no emoji), Google headlines and descriptions, and a WhatsApp Status. Every field is cut to its platform's limits. With ANTHROPIC_API_KEY set, the AI writes them from the product's real price, stock and options, in the shop's brand voice. Without it, or if the AI fails, built-in templates fill in. Sets are saved and can be edited, copied or deleted.

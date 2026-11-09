@@ -26,7 +26,7 @@ export default async function Ads() {
       <div className="row between">
         <div className="stack" style={{ gap: 4 }}>
           <h1>Campaigns</h1>
-          <p className="muted">Set the budget and who sees your ads on Facebook, Instagram, Google and TikTok, and see which ads bring chats and sales.</p>
+          <p className="muted">Run your ads on Instagram, Facebook, TikTok, Google, Snapchat, X, Opera, WhatsApp Status or with influencers, and see which ones bring chats and sales.</p>
         </div>
         <Link className="btn primary" href="/app/ads/new">New campaign</Link>
       </div>
@@ -63,7 +63,7 @@ export default async function Ads() {
                 <span className={`pill ${PILL[state]}`}>{STATUS_LABEL[state]}</span>
               </div>
               <span className="small muted num">
-                {PLATFORMS[c.platform as Platform].label} · {naira(c.dailyBudgetKobo)} a day for {c.days} {c.days === 1 ? "day" : "days"} · {placesLine(c.locations)}
+                {PLATFORMS[c.platform as Platform].label} · {c.dailyBudgetKobo ? `${naira(c.dailyBudgetKobo)} a day for ` : ""}{c.days} {c.days === 1 ? "day" : "days"} · {placesLine(c.locations)}
                 {c.product ? ` · ${c.product.name}` : ""}
               </span>
               <span className="small">{verdict(r)}</span>

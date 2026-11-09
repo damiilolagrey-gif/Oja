@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { can } from "@/lib/permissions";
 import { slugify } from "@/lib/format";
 import { currentUser, endSession, startSession } from "@/lib/session";
 import { logActivity } from "@/lib/services/activity";
@@ -41,7 +42,8 @@ export async function signup(_: FormState, data: FormData): Promise<FormState> {
     include: { users: true },
   });
   await startSession(shop.users[0].id);
-  redirect("/app");
+  // New shops start in the ad studio: making an ad is the first thing they came for.
+  redirect("/app/studio");
 }
 
 export async function login(_: FormState, data: FormData): Promise<FormState> {
@@ -53,7 +55,7 @@ export async function login(_: FormState, data: FormData): Promise<FormState> {
   }
   await startSession(user.id);
   await logActivity(user, "auth.login", "Logged in");
-  redirect("/app");
+  redirect(can(user.role, "studio") ? "/app/studio" : "/app");
 }
 
 export async function logout() {

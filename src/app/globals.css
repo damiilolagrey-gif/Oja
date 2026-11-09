@@ -205,3 +205,15 @@ code, .code { font-family: var(--mono); font-size: 12.5px; background: var(--bg)
 .choice label:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .choice input { margin-top: 3px; }
 .choice .hint { grid-column: 2; }
+
+/* Prompt-to-ad studio */
+.prompt-box { display: grid; gap: 10px; }
+.prompt-box textarea { font-size: 16px; min-height: 84px; }
+.ideas { display: flex; flex-wrap: wrap; gap: 6px; }
+.ideas button { border: 1px dashed var(--line); background: var(--panel); border-radius: 99px; padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--ink); }
+.concepts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.concept { display: grid; gap: 8px; padding: 10px; text-decoration: none; color: inherit; }
+.ad-thumb { width: 100%; aspect-ratio: 1; border-radius: 10px; display: block; background: var(--bg); }
+.maker { display: grid; gap: 16px; }
+@media (min-width: 900px) { .maker { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; } }
+.swatch { height: 44px; padding: 4px; width: 72px; }
